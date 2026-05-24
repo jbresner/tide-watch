@@ -1,15 +1,14 @@
 /**
- * TideWatch — chart.js  v1.8
+ * TideWatch — chart.js  v1.9
  *
- * Changes from v1.7:
- *  - Continuous horizontal timeline — drag/swipe to scroll through time
- *  - viewOffset: ms offset from "now", updated by touch interaction
- *  - Inertia / momentum scrolling with exponential decay
- *  - Chunked NOAA data loading — 5-day slabs, lazy-fetched as window nears edges
- *  - Y-axis fixed: drawn as opaque overlay strip after scrolling content
- *  - X-axis moves with scroll: labels recomputed each frame from visible window
- *  - Now marker stays at the correct position as the timeline scrolls
- *  - Y-axis left padding nudged from 44→50 (mobile), 52→58 (desktop)
+ * Changes from v1.8:
+ *  - Center marker replaces "now" marker — fixed at plot center, never moves
+ *  - "now" label removed entirely; no text label on the center line
+ *  - selectedTime = sessionNow + viewOffset — what the center marker points to
+ *  - Header shows selectedTime day/date/time + interpolated tide height
+ *  - Header updates continuously during drag and inertia
+ *  - Y-axis left padding increased: mobile 50→62, desktop 58→70 (visually obvious)
+ *  - Y-axis label draw position adjusted to maintain proportional gap
  */
 
 'use strict';
@@ -42,8 +41,8 @@ const C = {
   fillBot:     'rgba(11, 22, 34, 0.0)',
   hiLabel:     '#4ecdc4',
   loLabel:     '#93bcd1',
-  nowLine:     'rgba(232, 242, 248, 0.7)',
-  nowDot:      '#e8f2f8',
+  centerLine:  'rgba(232, 242, 248, 0.55)',  // fixed center marker line
+  selectedDot: '#e8f2f8',                    // dot on curve at selectedTime
 };
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
@@ -337,12 +336,12 @@ function drawChart() {
 
   const isMobile = w < 420;
 
-  // Y-axis left padding nudged: mobile 44→50, desktop 52→58
+  // Y-axis left padding increased for breathing room: mobile 62, desktop 70
   const pad = {
     top:    isMobile ? 34 : 38,
     right:  isMobile ? 12 : 20,
     bottom: isMobile ? 40 : 46,
-    left:   isMobile ? 50 : 58,
+    left:   isMobile ? 62 : 70,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
@@ -552,93 +551,96 @@ function drawChart() {
     ctx.restore();
   });
 
-  // ── Now marker ────────────────────────────────────────────────────────────
-  // nowX is always computed from the real sessionNow, regardless of viewOffset
-  const nowX = xOf(sessionNow);
+  // ── Fixed center marker ───────────────────────────────────────────────────
+  // The center marker is ALWAYS at the horizontal midpoint of the plot area.
+  // It never moves — the chart scrolls beneath it.
+  // It represents selectedTime = sessionNow + viewOffset.
+  const centerX     = pad.left + plotW / 2;
+  const selectedTime = center; // center = sessionNow + viewOffset, computed above
 
   ctx.save();
-  ctx.strokeStyle = C.nowLine;
-  ctx.lineWidth   = 1.5;
-  ctx.setLineDash([5, 4]);
+
+  // Thin solid vertical line at the fixed center
+  ctx.strokeStyle = C.centerLine;
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([]);
   ctx.lineCap     = 'butt';
   ctx.beginPath();
-  ctx.moveTo(nowX, pad.top);
-  ctx.lineTo(nowX, pad.top + plotH);
+  ctx.moveTo(centerX, pad.top);
+  ctx.lineTo(centerX, pad.top + plotH);
   ctx.stroke();
 
-  const nowV = interpolateAtTime(sessionNow);
-  if (nowV !== null) {
-    const nowY = yOf(nowV);
-    ctx.setLineDash([]);
+  // Small dot on the tide curve at selectedTime — moves with the curve
+  const selectedV = interpolateAtTime(selectedTime);
+  if (selectedV !== null) {
+    const selectedY = yOf(selectedV);
     ctx.beginPath();
-    ctx.arc(nowX, nowY, isMobile ? 4 : 5, 0, Math.PI * 2);
-    ctx.fillStyle   = C.nowDot;
+    ctx.arc(centerX, selectedY, isMobile ? 4 : 5, 0, Math.PI * 2);
+    ctx.fillStyle   = C.selectedDot;
     ctx.strokeStyle = C.navyMid;
     ctx.lineWidth   = 2;
     ctx.fill();
     ctx.stroke();
   }
 
-  // "now" label — in top margin
-  ctx.setLineDash([]);
-  ctx.font         = `500 ${isMobile ? 11 : 12}px "DM Mono", monospace`;
-  ctx.fillStyle    = C.textPrimary;
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'bottom';
-  // Keep label inside plot left bound
-  const nowLabelX = Math.max(nowX, pad.left + 18);
-  ctx.fillText('now', nowLabelX, pad.top - 4);
   ctx.restore();
 
   // ── Y-axis overlay — drawn LAST, covers scrolling grid lines ─────────────
-  // Opaque strip from canvas left to pad.left, then y-axis labels on top.
-  // This gives the fixed y-axis effect without a second canvas.
   drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile);
 
   // ── Update header text ────────────────────────────────────────────────────
-  updateHeader(winStart, winEnd, center);
+  updateHeader(center, selectedV !== undefined ? selectedV : interpolateAtTime(center));
 }
 
 // ─── Fixed Y-axis overlay ─────────────────────────────────────────────────────
-// Paints an opaque strip over the left margin so scrolling grid lines
-// don't bleed into the y-label area. Labels are then drawn on top.
 
 function drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile) {
   const yFontSize = isMobile ? 11 : 12;
 
-  // Opaque background strip (matches page background, not navy-mid)
+  // Opaque strip covering the left margin
   ctx.save();
   ctx.fillStyle = C.navyMid;
   ctx.fillRect(0, 0, pad.left, pad.top + plotH + 2);
   ctx.restore();
 
-  // Y-axis tick labels
+  // Y-axis tick labels — draw right up to the plot edge with a consistent gap
   ctx.save();
   yTicks.forEach(v => {
-    const y    = yOf(v);
+    const y     = yOf(v);
     const label = Number.isInteger(v) ? String(v) : v.toFixed(1);
     ctx.fillStyle    = C.textSecond;
     ctx.font         = `${yFontSize}px "DM Mono", monospace`;
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, pad.left - 6, y);
+    // 8px gap from the plot left edge, so labels sit comfortably in the new wider margin
+    ctx.fillText(label, pad.left - 8, y);
   });
   ctx.restore();
 }
 
 // ─── Header text update ───────────────────────────────────────────────────────
+// Shows: "Sun, May 24 · 2:14 PM · 3.2 ft"
+// Updates every draw frame during scroll and inertia.
 
-function updateHeader(winStart, winEnd, center) {
-  if (!center) {
-    center = new Date(sessionNow.getTime() + viewOffset);
-    const h12 = 12 * 60 * 60 * 1000;
-    winStart = new Date(center.getTime() - h12);
-    winEnd   = new Date(center.getTime() + h12);
+function updateHeader(selectedTime, tideValue) {
+  if (!selectedTime) {
+    selectedTime = new Date(sessionNow.getTime() + viewOffset);
+    tideValue    = interpolateAtTime(selectedTime);
   }
-  chartDateLabel.textContent =
-    winStart.toDateString() === winEnd.toDateString()
-      ? fmtDateFull(center)
-      : `${fmtDateShort(winStart)} – ${fmtDateShort(winEnd)}`;
+
+  const datePart = selectedTime.toLocaleDateString([], {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+  const timePart = selectedTime.toLocaleTimeString([], {
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
+
+  let text = `${datePart} · ${timePart}`;
+  if (tideValue !== null && tideValue !== undefined) {
+    text += ` · ${tideValue.toFixed(1)} ft`;
+  }
+
+  chartDateLabel.textContent = text;
 }
 
 // ─── Touch / inertia interaction ──────────────────────────────────────────────
@@ -656,12 +658,12 @@ let inertiaRaf = null;
 
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
-  const cssW = canvas.clientWidth || canvas.offsetWidth || 320;
-  const isMobile = cssW < 420;
-  const leftPad  = isMobile ? 50 : 58;
-  const rightPad = isMobile ? 12 : 20;
-  const plotW    = cssW - leftPad - rightPad;
-  return (24 * 60 * 60 * 1000) / plotW; // 24h window / plot pixels
+  const cssW    = canvas.clientWidth || canvas.offsetWidth || 320;
+  const isMob   = cssW < 420;
+  const leftPad = isMob ? 62 : 70;
+  const rightPad= isMob ? 12 : 20;
+  const plotW   = cssW - leftPad - rightPad;
+  return (24 * 60 * 60 * 1000) / plotW;
 }
 
 function cancelInertia() {
