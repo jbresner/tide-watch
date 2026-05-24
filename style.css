@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v1.2
+   TideWatch — style.css  v1.3
    Aesthetic: coastal instrument panel
    Palette: deep navy, tide blue, seafoam, sand
 ───────────────────────────────────────── */
@@ -18,12 +18,11 @@
   --tide-bright: #2e9fd4;
   --seafoam:     #4ecdc4;
   --sand:        #c8b99a;
-  --sand-light:  #e8ddd0;
 
   /* Contrast-safe text scale */
-  --text-primary:   #e8f2f8;   /* near-white, high contrast on navy */
-  --text-secondary: #93bcd1;   /* mid blue-gray, readable on navy-mid */
-  --text-muted:     #5a8aa0;   /* subtle but clears AA on navy-mid */
+  --text-primary:   #e8f2f8;
+  --text-secondary: #93bcd1;
+  --text-muted:     #5a8aa0;
 
   --success:  #4ecdc4;
   --warning:  #f4a261;
@@ -93,7 +92,7 @@ html, body {
 
 #version {
   font-family: var(--font-mono);
-  font-size: 11px;           /* was 10px */
+  font-size: 11px;
   color: var(--text-muted);
   letter-spacing: 0.08em;
   margin-left: auto;
@@ -105,7 +104,7 @@ html, body {
   display: none !important;
 }
 
-/* ── Status card (geolocation / station lookup) ── */
+/* ── Geolocation / station lookup status card ── */
 
 #status-section {
   margin-bottom: 20px;
@@ -147,7 +146,7 @@ html, body {
 }
 
 #status-headline {
-  font-size: 16px;           /* was 15px */
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -185,7 +184,7 @@ html, body {
 }
 
 #station-label {
-  font-size: 11px;           /* was 10px */
+  font-size: 11px;
   font-family: var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -193,7 +192,7 @@ html, body {
 }
 
 #station-type-badge {
-  font-size: 11px;           /* was 10px */
+  font-size: 11px;
   font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -215,7 +214,7 @@ html, body {
 }
 
 #station-name {
-  font-size: 24px;           /* was 22px */
+  font-size: 24px;
   font-weight: 300;
   color: var(--text-primary);
   line-height: 1.2;
@@ -232,12 +231,12 @@ html, body {
 
 #station-meta span {
   font-family: var(--font-mono);
-  font-size: 13px;           /* was 12px */
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
 #candidates-toggle {
-  font-size: 13px;           /* was 12px */
+  font-size: 13px;
   font-family: var(--font-mono);
   color: var(--tide-bright);
   cursor: pointer;
@@ -268,62 +267,31 @@ html, body {
 }
 
 .candidate-name {
-  font-size: 14px;           /* was 13px */
+  font-size: 14px;
   color: var(--text-secondary);
 }
 
 .candidate-dist {
   font-family: var(--font-mono);
-  font-size: 12px;           /* was 11px */
+  font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .candidate-id {
   font-family: var(--font-mono);
-  font-size: 12px;           /* was 11px */
+  font-size: 12px;
   color: var(--text-muted);
 }
 
 .candidate-type {
   font-family: var(--font-mono);
-  font-size: 11px;           /* was 10px */
+  font-size: 11px;
   letter-spacing: 0.06em;
 }
 
 .candidate-type.harmonic    { color: var(--seafoam); }
 .candidate-type.subordinate { color: var(--warning); }
-
-/* ── User coords card ── */
-
-#user-section {
-  margin-bottom: 20px;
-  animation: fade-up 0.5s 0.1s ease both;
-}
-
-#user-card {
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
-  border-radius: var(--radius-md);
-  padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-#user-coords-label {
-  font-size: 11px;           /* was 10px */
-  font-family: var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-#user-coords-display {
-  font-family: var(--font-mono);
-  font-size: 13px;           /* was 12px */
-  color: var(--text-secondary);
-}
 
 /* ── Chart section ── */
 
@@ -335,7 +303,7 @@ html, body {
   animation: fade-up 0.4s ease both;
 }
 
-/* Chart status (loading/error inside chart section) */
+/* Chart loading status */
 
 #chart-status-card {
   display: flex;
@@ -361,7 +329,7 @@ html, body {
 }
 
 #chart-status-headline {
-  font-size: 16px;           /* was 15px */
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -378,33 +346,18 @@ html, body {
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 18px 16px 14px;
+  padding: 18px 16px 16px;
 }
 
 #chart-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   margin-bottom: 14px;
-  gap: 8px;
 }
 
 #chart-date-label {
-  font-size: 16px;           /* was 15px */
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  flex: 1;
-  min-width: 0;
-}
-
-#chart-range-label {
-  font-size: 12px;           /* was 11px */
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 #chart-container {
@@ -417,31 +370,6 @@ html, body {
   display: block;
   width: 100%;
   border-radius: var(--radius-sm);
-}
-
-#chart-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-  gap: 8px;
-}
-
-#chart-datum-label,
-#chart-station-mini {
-  font-size: 12px;           /* was 10px */
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
-#chart-station-mini {
-  color: var(--text-secondary);
-  text-align: right;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Chart error */

@@ -26,8 +26,8 @@ const stationDistance = document.getElementById('station-distance');
 const stationCoords   = document.getElementById('station-coords');
 const candidatesList  = document.getElementById('candidates-list');
 
-const userSection      = document.getElementById('user-section');
-const userCoordsDisplay= document.getElementById('user-coords-display');
+const userSection      = null; // element removed from UI
+const userCoordsDisplay= null; // element removed from UI
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -146,8 +146,16 @@ function renderStation(station, allCandidates) {
   const distMi = kmToMiles(station.distKm).toFixed(1);
   const distKm = station.distKm.toFixed(1);
 
-  stationTypeBadge.textContent = typeLabel;
-  stationTypeBadge.className = typeLabel;
+  // Only show the type badge for known types — suppress for 'unknown'
+  if (typeLabel === 'unknown') {
+    stationTypeBadge.textContent = '';
+    stationTypeBadge.className = '';
+    stationTypeBadge.style.display = 'none';
+  } else {
+    stationTypeBadge.textContent = typeLabel;
+    stationTypeBadge.className = typeLabel;
+    stationTypeBadge.style.display = '';
+  }
   stationName.textContent = station.name;
   stationIdDisplay.textContent = `ID ${station.id}`;
   stationDistance.textContent = `${distMi} mi · ${distKm} km`;
@@ -217,10 +225,6 @@ async function init() {
     return;
   }
 
-  // Show user coords
-  userCoordsDisplay.textContent = `${userLat.toFixed(5)}°, ${userLon.toFixed(5)}°`;
-  userSection.classList.remove('hidden');
-
   setStatus('loading', 'Finding nearest station', 'Downloading NOAA tide station list…');
 
   let stations;
@@ -239,7 +243,8 @@ async function init() {
   const candidates = findNearestStations(stations, userLat, userLon, CANDIDATE_COUNT);
   const best = selectBestStation(candidates);
 
-  setStatus('done', 'Station found', `Using ${best.name} · ${stationTypeLabel(best)}`);
+  // Hide the status card — the station card itself is the confirmation
+  document.getElementById('status-section').classList.add('hidden');
 
   renderStation(best, candidates);
 }

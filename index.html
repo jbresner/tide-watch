@@ -17,13 +17,13 @@
       <div id="brand">
         <span id="brand-mark">◈</span>
         <span id="brand-name">TideWatch</span>
-        <span id="version">v1.2</span>
+        <span id="version">v1.3</span>
       </div>
     </header>
 
     <main id="main-content">
 
-      <!-- Phase 1: Station lookup status -->
+      <!-- Geolocation / station lookup status -->
       <section id="status-section">
         <div id="status-card">
           <div id="status-icon" class="status-waiting">◎</div>
@@ -52,15 +52,7 @@
         </div>
       </section>
 
-      <!-- User coords debug (collapsed by default) -->
-      <section id="user-section" class="hidden">
-        <div id="user-card">
-          <span id="user-coords-label">Your position</span>
-          <span id="user-coords-display"></span>
-        </div>
-      </section>
-
-      <!-- Tide chart (populated by chart.js after station is found) -->
+      <!-- Tide chart -->
       <section id="chart-section" class="hidden">
 
         <div id="chart-status-card" class="hidden">
@@ -74,14 +66,9 @@
         <div id="chart-card" class="hidden">
           <div id="chart-header">
             <div id="chart-date-label"></div>
-            <div id="chart-range-label">±12 hours</div>
           </div>
           <div id="chart-container">
             <canvas id="tide-canvas"></canvas>
-          </div>
-          <div id="chart-footer">
-            <span id="chart-datum-label">Datum: MLLW · English units</span>
-            <span id="chart-station-mini"></span>
           </div>
         </div>
 
