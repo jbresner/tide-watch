@@ -61,7 +61,7 @@ function stationTypeLabel(station) {
   const t = (station.stationType || '').toUpperCase();
   if (t === 'R') return 'harmonic';
   if (t === 'S') return 'subordinate';
-  return 'unknown';
+  return null;  // unknown type — omit entirely, never render
 }
 
 // ─── Fetch station list ───────────────────────────────────────────────────────
@@ -118,7 +118,8 @@ function selectBestStation(candidates) {
 function renderStation(station, allCandidates) {
   const typeLabel = stationTypeLabel(station);
 
-  if (typeLabel === 'unknown') {
+  // Only show badge for known types — null means type is unresolved, omit entirely
+  if (!typeLabel) {
     stationTypeBadge.textContent = '';
     stationTypeBadge.className = '';
     stationTypeBadge.style.display = 'none';

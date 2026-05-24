@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v1.6
+   TideWatch — style.css  v1.7
    Aesthetic: coastal instrument panel
 ───────────────────────────────────────── */
 
@@ -9,7 +9,6 @@
   --navy:        #0b1622;
   --navy-mid:    #111f30;
   --navy-light:  #1a2f45;
-  --tide:        #1e6fa8;
   --tide-bright: #2e9fd4;
   --seafoam:     #4ecdc4;
 
@@ -24,10 +23,9 @@
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
 
-  --radius-sm: 6px;
   --radius-md: 12px;
 
-  /* App gutter — shared by header, cards, and chart header */
+  /* Horizontal gutter — used by header, cards, and chart date label */
   --gutter: 14px;
 }
 
@@ -85,19 +83,11 @@ html, body {
   color: var(--text-primary);
 }
 
-#version {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  margin-left: auto;
-}
-
 /* ── Utility ── */
 
 .hidden { display: none !important; }
 
-/* ── Status card (geolocation / station loading) ── */
+/* ── Status card ── */
 
 #status-section { margin-bottom: 16px; }
 
@@ -144,10 +134,10 @@ html, body {
   font-family: var(--font-mono);
 }
 
-/* ── Station card — stays boxed ── */
+/* ── Station card — boxed ── */
 
 #station-section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   animation: fade-up 0.4s ease both;
 }
 
@@ -244,7 +234,6 @@ html, body {
   gap: 7px;
 }
 
-/* Two columns: name takes remaining space, ID right-aligned */
 .candidate-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -267,7 +256,12 @@ html, body {
   white-space: nowrap;
 }
 
-/* ── Chart section — unboxed, full-bleed canvas ── */
+/* ─────────────────────────────────────────
+   Chart section — UNBOXED
+   No card, no background, no border,
+   no border-radius, no padding.
+   The chart sits directly on --navy.
+───────────────────────────────────────── */
 
 #chart-section {
   display: flex;
@@ -275,7 +269,7 @@ html, body {
   animation: fade-up 0.4s ease both;
 }
 
-/* Chart loading status — still uses a card */
+/* Chart loading status keeps a card */
 #chart-status-card {
   display: flex;
   align-items: flex-start;
@@ -301,17 +295,23 @@ html, body {
   font-family: var(--font-mono);
 }
 
-/* ── Chart card: no card — just layout ── */
-
+/*
+ * #chart-card — explicitly NO card properties.
+ * background: none, border: none, border-radius: 0, padding: 0.
+ * All explicit so browser cache can't resurrect old values.
+ */
 #chart-card {
-  /* No background, border, or border-radius — chart lives on the page background */
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* Date label sits in the gutter, aligned with the rest of the UI */
+/* Date label — aligned to gutter, breathing room below */
 #chart-header {
-  padding: 0 0 8px;
+  padding: 0 0 10px;
 }
 
 #chart-date-label {
@@ -322,27 +322,36 @@ html, body {
 }
 
 /*
- * Chart container bleeds to the full width of #app by negating the gutter.
- * This lets the canvas reach edge-to-edge on mobile.
- * On wider viewports the app has max-width, so this stays contained.
+ * Chart container — full-bleed beyond the app gutter.
+ * Negative margins cancel the #app padding so the canvas
+ * reaches the viewport edge on mobile.
+ * A single 1px border-top provides visual separation from
+ * the station card above without looking like a card.
  */
 #chart-container {
   margin-left:  calc(-1 * var(--gutter));
   margin-right: calc(-1 * var(--gutter));
   width: calc(100% + 2 * var(--gutter));
-  overflow: hidden;
-  /* Very subtle top border acts as the visual separator instead of a card edge */
+  background: none;
+  border: none;
+  border-radius: 0;
   border-top: 1px solid var(--navy-light);
+  overflow: visible;
 }
 
+/* Canvas — no radius, no border, fills container */
 #tide-canvas {
   display: block;
   width: 100%;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  background: none;
 }
 
-/* Metadata footer — back inside the gutter, right-aligned */
+/* Metadata footer — sits inside gutter, right-aligned */
 #chart-meta {
-  padding: 6px 0 0;
+  padding: 8px 0 0;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
@@ -350,8 +359,7 @@ html, body {
   text-align: right;
 }
 
-/* ── Chart error — keeps a card since it's an exception state ── */
-
+/* Chart error state — keeps a card */
 #chart-error-card {
   display: flex;
   align-items: flex-start;
