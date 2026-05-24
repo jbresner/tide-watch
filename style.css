@@ -1,14 +1,9 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v1.3
+   TideWatch — style.css  v1.5
    Aesthetic: coastal instrument panel
-   Palette: deep navy, tide blue, seafoam, sand
 ───────────────────────────────────────── */
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
   --navy:        #0b1622;
@@ -17,23 +12,20 @@
   --tide:        #1e6fa8;
   --tide-bright: #2e9fd4;
   --seafoam:     #4ecdc4;
-  --sand:        #c8b99a;
 
-  /* Contrast-safe text scale */
   --text-primary:   #e8f2f8;
   --text-secondary: #93bcd1;
   --text-muted:     #5a8aa0;
 
-  --success:  #4ecdc4;
-  --warning:  #f4a261;
-  --error:    #e76f51;
+  --success: #4ecdc4;
+  --warning: #f4a261;
+  --error:   #e76f51;
 
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
 
   --radius-sm: 6px;
   --radius-md: 12px;
-  --radius-lg: 20px;
 }
 
 html, body {
@@ -52,15 +44,16 @@ html, body {
   flex-direction: column;
   max-width: 520px;
   margin: 0 auto;
-  padding: 0 20px 48px;
+  /* Tighter horizontal padding on mobile — gives chart more width */
+  padding: 0 14px 48px;
 }
 
 /* ── Header ── */
 
 #app-header {
-  padding: 24px 0 20px;
+  padding: 20px 0 18px;
   border-bottom: 1px solid var(--navy-light);
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 #brand {
@@ -100,24 +93,20 @@ html, body {
 
 /* ── Utility ── */
 
-.hidden {
-  display: none !important;
-}
+.hidden { display: none !important; }
 
-/* ── Geolocation / station lookup status card ── */
+/* ── Status card ── */
 
-#status-section {
-  margin-bottom: 20px;
-}
+#status-section { margin-bottom: 16px; }
 
 #status-card {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 14px;
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 18px;
 }
 
 #status-icon {
@@ -139,11 +128,7 @@ html, body {
   to   { transform: rotate(360deg); }
 }
 
-#status-text {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+#status-text { display: flex; flex-direction: column; gap: 4px; }
 
 #status-headline {
   font-size: 16px;
@@ -160,12 +145,12 @@ html, body {
 /* ── Station card ── */
 
 #station-section {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   animation: fade-up 0.4s ease both;
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -173,30 +158,30 @@ html, body {
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 16px 18px;
 }
 
 #station-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 #station-label {
   font-size: 11px;
   font-family: var(--font-mono);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 #station-type-badge {
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 20px;
   border: 1px solid;
 }
@@ -214,79 +199,70 @@ html, body {
 }
 
 #station-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 300;
   color: var(--text-primary);
   line-height: 1.2;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   letter-spacing: -0.01em;
 }
 
 #station-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  margin-bottom: 16px;
+  gap: 4px 14px;
+  margin-bottom: 14px;
 }
 
 #station-meta span {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
 #candidates-toggle {
-  font-size: 13px;
+  font-size: 12px;
   font-family: var(--font-mono);
   color: var(--tide-bright);
   cursor: pointer;
   user-select: none;
   letter-spacing: 0.04em;
-  padding: 4px 0;
+  padding: 3px 0;
   transition: color 0.2s;
 }
 
-#candidates-toggle:hover {
-  color: var(--seafoam);
-}
+#candidates-toggle:hover { color: var(--seafoam); }
 
 #candidates-list {
-  margin-top: 12px;
+  margin-top: 10px;
   border-top: 1px solid var(--navy-light);
-  padding-top: 12px;
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .candidate-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 3px 12px;
+  grid-template-columns: 1fr auto auto;
+  gap: 2px 10px;
   align-items: baseline;
 }
 
 .candidate-name {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
-}
-
-.candidate-dist {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
 }
 
 .candidate-id {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 .candidate-type {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.06em;
 }
 
@@ -296,10 +272,10 @@ html, body {
 /* ── Chart section ── */
 
 #chart-section {
-  margin-top: 4px;
+  margin-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   animation: fade-up 0.4s ease both;
 }
 
@@ -308,25 +284,15 @@ html, body {
 #chart-status-card {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 14px;
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 18px;
 }
 
-#chart-status-icon {
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-#chart-status-text {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+#chart-status-icon { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+#chart-status-text { display: flex; flex-direction: column; gap: 4px; }
 
 #chart-status-headline {
   font-size: 16px;
@@ -340,21 +306,20 @@ html, body {
   font-family: var(--font-mono);
 }
 
-/* Chart card */
+/* Chart card — tighter padding so canvas gets more room */
 
 #chart-card {
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 18px 16px 16px;
+  /* Horizontal padding: 10px sides, 12px top, 10px bottom */
+  padding: 12px 10px 10px;
 }
 
-#chart-header {
-  margin-bottom: 14px;
-}
+#chart-header { margin-bottom: 10px; }
 
 #chart-date-label {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-primary);
   letter-spacing: -0.01em;
@@ -372,6 +337,17 @@ html, body {
   border-radius: var(--radius-sm);
 }
 
+/* Minimal metadata footer */
+
+#chart-meta {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-align: right;
+}
+
 /* Chart error */
 
 #chart-error-card {
@@ -381,7 +357,7 @@ html, body {
   background: var(--navy-mid);
   border: 1px solid rgba(231, 111, 81, 0.3);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 18px;
 }
 
 #chart-error-icon {
@@ -391,11 +367,7 @@ html, body {
   margin-top: 1px;
 }
 
-#chart-error-text {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+#chart-error-text { display: flex; flex-direction: column; gap: 4px; }
 
 #chart-error-headline {
   font-size: 16px;
@@ -411,8 +383,15 @@ html, body {
 
 /* ── Responsive ── */
 
+@media (min-width: 400px) {
+  #app { padding: 0 16px 48px; }
+  #station-card { padding: 18px 20px; }
+  #chart-card { padding: 14px 12px 12px; }
+  #station-name { font-size: 23px; }
+}
+
 @media (min-width: 540px) {
-  #app {
-    padding: 0 0 60px;
-  }
+  #app { padding: 0 0 60px; }
+  #chart-card { padding: 16px 14px 14px; }
+  #station-name { font-size: 24px; }
 }

@@ -17,7 +17,7 @@
       <div id="brand">
         <span id="brand-mark">◈</span>
         <span id="brand-name">TideWatch</span>
-        <span id="version">v1.4</span>
+        <span id="version">v1.5</span>
       </div>
     </header>
 
@@ -34,7 +34,7 @@
         </div>
       </section>
 
-      <!-- Station result card (hidden until found) -->
+      <!-- Station card -->
       <section id="station-section" class="hidden">
         <div id="station-card">
           <div id="station-header">
@@ -44,8 +44,6 @@
           <div id="station-name"></div>
           <div id="station-meta">
             <span id="station-id-display"></span>
-            <span id="station-distance"></span>
-            <span id="station-coords"></span>
           </div>
           <div id="candidates-toggle" onclick="toggleCandidates()">View nearby stations ▾</div>
           <div id="candidates-list" class="hidden"></div>
@@ -70,6 +68,7 @@
           <div id="chart-container">
             <canvas id="tide-canvas"></canvas>
           </div>
+          <div id="chart-meta">MLLW &bull; ft</div>
         </div>
 
         <div id="chart-error-card" class="hidden">

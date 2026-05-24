@@ -1,6 +1,6 @@
 /**
- * TideWatch — station.js
- * Phase 1: Geolocation → NOAA station list → nearest harmonic station
+ * TideWatch — station.js  v1.5
+ * Geolocation → NOAA station list → nearest harmonic station
  */
 
 'use strict';
@@ -10,7 +10,7 @@
 const NOAA_STATIONS_URL =
   'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions';
 
-const CANDIDATE_COUNT = 10; // How many nearest stations to evaluate and display
+const CANDIDATE_COUNT = 10;
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
@@ -18,16 +18,11 @@ const statusIcon     = document.getElementById('status-icon');
 const statusHeadline = document.getElementById('status-headline');
 const statusDetail   = document.getElementById('status-detail');
 
-const stationSection  = document.getElementById('station-section');
-const stationTypeBadge= document.getElementById('station-type-badge');
-const stationName     = document.getElementById('station-name');
-const stationIdDisplay= document.getElementById('station-id-display');
-const stationDistance = document.getElementById('station-distance');
-const stationCoords   = document.getElementById('station-coords');
-const candidatesList  = document.getElementById('candidates-list');
-
-const userSection      = null; // element removed from UI
-const userCoordsDisplay= null; // element removed from UI
+const stationSection   = document.getElementById('station-section');
+const stationTypeBadge = document.getElementById('station-type-badge');
+const stationName      = document.getElementById('station-name');
+const stationIdDisplay = document.getElementById('station-id-display');
+const candidatesList   = document.getElementById('candidates-list');
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -51,22 +46,15 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function kmToMiles(km) {
-  return km * 0.621371;
-}
+function kmToMiles(km) { return km * 0.621371; }
 
-// ─── Station type detection ───────────────────────────────────────────────────
-// NOAA station objects have a `stationType` field. Known values:
-//   'R' = reference / harmonic (preferred — supports interval=6)
-//   'S' = subordinate (hilo only)
-// Some older records omit the field; treat those as unknown and prefer
-// them over known subordinates but below known reference stations.
+// ─── Station type ─────────────────────────────────────────────────────────────
 
 function stationRank(station) {
   const t = (station.stationType || '').toUpperCase();
-  if (t === 'R') return 0; // best
-  if (t === '')  return 1; // unknown — might work
-  return 2;                // subordinate
+  if (t === 'R') return 0;
+  if (t === '')  return 1;
+  return 2;
 }
 
 function stationTypeLabel(station) {
@@ -79,16 +67,15 @@ function stationTypeLabel(station) {
 // ─── Fetch station list ───────────────────────────────────────────────────────
 
 async function fetchStations() {
-  // Check sessionStorage cache first
   const cached = sessionStorage.getItem('tw_stations');
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
       if (parsed && parsed.length > 0) {
-        console.log(`[TideWatch] Using cached station list (${parsed.length} stations)`);
+        console.log(`[TideWatch] Cached stations: ${parsed.length}`);
         return parsed;
       }
-    } catch (_) { /* ignore corrupt cache */ }
+    } catch (_) {}
   }
 
   setStatus('loading', 'Downloading tide stations', 'Fetching NOAA station metadata…');
@@ -101,8 +88,7 @@ async function fetchStations() {
     s => typeof s.lat === 'number' && typeof s.lng === 'number'
   );
 
-  console.log(`[TideWatch] Loaded ${stations.length} tide prediction stations from NOAA`);
-
+  console.log(`[TideWatch] Loaded ${stations.length} stations`);
   sessionStorage.setItem('tw_stations', JSON.stringify(stations));
   return stations;
 }
@@ -111,32 +97,20 @@ async function fetchStations() {
 
 function findNearestStations(stations, userLat, userLon, count) {
   return stations
-    .map(s => ({
-      ...s,
-      distKm: haversineKm(userLat, userLon, s.lat, s.lng),
-    }))
+    .map(s => ({ ...s, distKm: haversineKm(userLat, userLon, s.lat, s.lng) }))
     .sort((a, b) => {
-      // Primary sort: distance
-      // Secondary sort within 50 km: prefer reference stations
       const distDiff = a.distKm - b.distKm;
       if (Math.abs(distDiff) > 50) return distDiff;
       const rankDiff = stationRank(a) - stationRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return distDiff;
+      return rankDiff !== 0 ? rankDiff : distDiff;
     })
     .slice(0, count);
 }
 
-// Picks the best station: closest harmonic within reasonable range,
-// else falls back to closest overall.
 function selectBestStation(candidates) {
-  const harmonic = candidates.find(s => stationRank(s) === 0);
-  if (harmonic) return harmonic;
-
-  const unknown = candidates.find(s => stationRank(s) === 1);
-  if (unknown) return unknown;
-
-  return candidates[0]; // closest subordinate as last resort
+  return candidates.find(s => stationRank(s) === 0)
+      || candidates.find(s => stationRank(s) === 1)
+      || candidates[0];
 }
 
 // ─── Render station card ──────────────────────────────────────────────────────
@@ -144,7 +118,6 @@ function selectBestStation(candidates) {
 function renderStation(station, allCandidates) {
   const typeLabel = stationTypeLabel(station);
 
-  // Only show the type badge for known types — suppress for 'unknown'
   if (typeLabel === 'unknown') {
     stationTypeBadge.textContent = '';
     stationTypeBadge.className = '';
@@ -154,25 +127,19 @@ function renderStation(station, allCandidates) {
     stationTypeBadge.className = typeLabel;
     stationTypeBadge.style.display = '';
   }
+
   stationName.textContent = station.name;
   stationIdDisplay.textContent = `ID ${station.id}`;
-  stationDistance.textContent = '';   // distance removed from UI
-  stationCoords.textContent =
-    `${station.lat.toFixed(4)}°, ${station.lng.toFixed(4)}°`;
 
   // Candidates list
   candidatesList.innerHTML = '';
-  allCandidates.forEach((s, i) => {
+  allCandidates.forEach(s => {
     const isSelected = s.id === station.id;
     const row = document.createElement('div');
     row.className = 'candidate-row' + (isSelected ? ' selected-station' : '');
-
-    const mi = kmToMiles(s.distKm).toFixed(1);
     const tl = stationTypeLabel(s);
-
     row.innerHTML = `
       <span class="candidate-name">${isSelected ? '▸ ' : ''}${s.name}</span>
-      <span class="candidate-dist">${mi} mi</span>
       <span class="candidate-id">${s.id}</span>
       <span class="candidate-type ${tl}">${tl}</span>
     `;
@@ -182,7 +149,6 @@ function renderStation(station, allCandidates) {
   stationSection.classList.remove('hidden');
   console.log('[TideWatch] Selected station:', station);
 
-  // Notify other modules
   document.dispatchEvent(new CustomEvent('stationSelected', { detail: station }));
 }
 
@@ -193,12 +159,9 @@ function toggleCandidates() {
   const toggle = document.getElementById('candidates-toggle');
   const isOpen = !list.classList.contains('hidden');
   list.classList.toggle('hidden', isOpen);
-  toggle.textContent = isOpen
-    ? 'View nearby stations ▾'
-    : 'Hide nearby stations ▴';
+  toggle.textContent = isOpen ? 'View nearby stations ▾' : 'Hide nearby stations ▴';
 }
 
-// Expose to HTML onclick
 window.toggleCandidates = toggleCandidates;
 
 // ─── Main flow ────────────────────────────────────────────────────────────────
@@ -207,17 +170,14 @@ async function init() {
   setStatus('locating', 'Locating you', 'Requesting geolocation permission…');
 
   let userLat, userLon;
-
   try {
-    const position = await new Promise((resolve, reject) =>
+    const pos = await new Promise((resolve, reject) =>
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        timeout: 12000,
-        maximumAge: 60000,
-        enableHighAccuracy: false,
+        timeout: 12000, maximumAge: 60000, enableHighAccuracy: false,
       })
     );
-    userLat = position.coords.latitude;
-    userLon = position.coords.longitude;
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
   } catch (err) {
     setStatus('error', 'Location unavailable', err.message || 'Permission denied or timed out.');
     return;
@@ -233,17 +193,13 @@ async function init() {
     return;
   }
 
-  setStatus('loading', 'Ranking stations', `Evaluating ${stations.length.toLocaleString()} tide stations…`);
-
-  // Small async yield so the UI can paint the status update
+  setStatus('loading', 'Ranking stations', `Evaluating ${stations.length.toLocaleString()} stations…`);
   await new Promise(r => setTimeout(r, 30));
 
   const candidates = findNearestStations(stations, userLat, userLon, CANDIDATE_COUNT);
   const best = selectBestStation(candidates);
 
-  // Hide the status card — the station card itself is the confirmation
   document.getElementById('status-section').classList.add('hidden');
-
   renderStation(best, candidates);
 }
 
