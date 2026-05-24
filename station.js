@@ -143,8 +143,6 @@ function selectBestStation(candidates) {
 
 function renderStation(station, allCandidates) {
   const typeLabel = stationTypeLabel(station);
-  const distMi = kmToMiles(station.distKm).toFixed(1);
-  const distKm = station.distKm.toFixed(1);
 
   // Only show the type badge for known types — suppress for 'unknown'
   if (typeLabel === 'unknown') {
@@ -158,7 +156,7 @@ function renderStation(station, allCandidates) {
   }
   stationName.textContent = station.name;
   stationIdDisplay.textContent = `ID ${station.id}`;
-  stationDistance.textContent = `${distMi} mi · ${distKm} km`;
+  stationDistance.textContent = '';   // distance removed from UI
   stationCoords.textContent =
     `${station.lat.toFixed(4)}°, ${station.lng.toFixed(4)}°`;
 
@@ -196,8 +194,8 @@ function toggleCandidates() {
   const isOpen = !list.classList.contains('hidden');
   list.classList.toggle('hidden', isOpen);
   toggle.textContent = isOpen
-    ? 'Show nearby candidates ▾'
-    : 'Hide nearby candidates ▴';
+    ? 'View nearby stations ▾'
+    : 'Hide nearby stations ▴';
 }
 
 // Expose to HTML onclick

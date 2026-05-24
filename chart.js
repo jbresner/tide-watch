@@ -354,19 +354,31 @@ function drawChart() {
   ctx.fillText('ft', pad.left - 8, topTickY - 8);
   ctx.restore();
 
-  // ── Vertical grid lines + x-axis time labels ──────────────────────────────
+  // ── Vertical grid lines + x-axis tick marks + time labels ───────────────
   ctx.save();
-  ctx.strokeStyle = C.gridLine;
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([2, 9]);
 
   xTicks.forEach(t => {
     const x = xOf(t);
+
+    // Dashed grid line through the plot interior
+    ctx.strokeStyle = C.gridLine;
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([2, 9]);
     ctx.beginPath();
     ctx.moveTo(x, pad.top);
     ctx.lineTo(x, pad.top + plotH);
     ctx.stroke();
 
+    // Short solid tick mark below the plot border, connecting border to label
+    ctx.strokeStyle = C.textMuted;
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top + plotH);
+    ctx.lineTo(x, pad.top + plotH + 5);
+    ctx.stroke();
+
+    // Time label below the tick
     ctx.fillStyle    = C.textMuted;
     ctx.font         = '12px "DM Mono", monospace';
     ctx.textAlign    = 'center';
