@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v1.7
+   TideWatch — style.css  v1.8
    Aesthetic: coastal instrument panel
 ───────────────────────────────────────── */
 
@@ -347,6 +347,15 @@ html, body {
   border: none;
   border-radius: 0;
   background: none;
+  /* Allow horizontal drag without triggering page scroll */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+#tide-canvas:active {
+  cursor: grabbing;
 }
 
 /* Metadata footer — sits inside gutter, right-aligned */

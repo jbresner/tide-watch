@@ -1,14 +1,15 @@
 /**
- * TideWatch — chart.js  v1.5
+ * TideWatch — chart.js  v1.8
  *
- * Changes from v1.4:
- *  - Adaptive x-axis: fewer compact labels on narrow screens (12a/6a/12p/6p)
- *  - Compact label format: "12a" "3p" instead of "12 AM" "3 PM"
- *  - Removed "ft" y-axis unit label (moved to HTML chart-meta footer)
- *  - Adaptive annotations: font + collision zones scale with plotW
- *  - Height-only fallback when time label won't fit
- *  - Tighter card padding on mobile via CSS; canvas height ratio adjusts for narrow screens
- *  - Station card: distance and coords removed
+ * Changes from v1.7:
+ *  - Continuous horizontal timeline — drag/swipe to scroll through time
+ *  - viewOffset: ms offset from "now", updated by touch interaction
+ *  - Inertia / momentum scrolling with exponential decay
+ *  - Chunked NOAA data loading — 5-day slabs, lazy-fetched as window nears edges
+ *  - Y-axis fixed: drawn as opaque overlay strip after scrolling content
+ *  - X-axis moves with scroll: labels recomputed each frame from visible window
+ *  - Now marker stays at the correct position as the timeline scrolls
+ *  - Y-axis left padding nudged from 44→50 (mobile), 52→58 (desktop)
  */
 
 'use strict';
@@ -29,6 +30,7 @@ const NOAA_BASE = {
 // ─── Canvas palette ───────────────────────────────────────────────────────────
 
 const C = {
+  navy:        '#0b1622',
   navyMid:     '#111f30',
   navyLight:   '#1a2f45',
   tideBright:  '#2e9fd4',
@@ -58,11 +60,31 @@ const chartErrorDetail  = document.getElementById('chart-error-detail');
 const canvas            = document.getElementById('tide-canvas');
 const ctx               = canvas.getContext('2d');
 
-// ─── Module state ─────────────────────────────────────────────────────────────
+// ─── Timeline state ───────────────────────────────────────────────────────────
 
-let tidePoints  = [];
-let hiloPoints  = [];
+// viewOffset: milliseconds the view is shifted from "now"
+// 0 = centered on now (default)
+// positive = looking into the future
+// negative = looking into the past
+let viewOffset = 0;
+
+// The real wall-clock "now" — captured once when chart loads, used as the
+// fixed reference point so the now marker doesn't drift during a session.
+let sessionNow = new Date();
+
+// ─── Tide data store ──────────────────────────────────────────────────────────
+
+let tidePoints  = [];  // {t: Date, v: number}[] — sorted ascending
+let hiloPoints  = [];  // {t: Date, v: number, type:'H'|'L'}[] — sorted ascending
 let stationInfo = null;
+
+// Loaded date ranges (as day-boundary timestamps for deduplication)
+// Each entry: {start: Date, end: Date}
+const loadedChunks = [];
+let fetchInFlight  = false;
+
+// ─── Y scale — computed once from loaded data, stable during scroll ───────────
+let yScaleCache = null; // {ticks, axisMin, axisMax, yMin, yMax}
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -90,10 +112,7 @@ function toNoaaDate(d) {
 
 function parseNoaaTime(str) { return new Date(str.replace(' ', 'T')); }
 
-/**
- * Compact axis label: "12a", "3p", "6a", "9p"
- * Midnight = "12a", Noon = "12p", others = hour + a/p (no leading zero)
- */
+// Compact axis label: "12a" "3p" etc.
 function fmtAxisLabel(d) {
   const h = d.getHours();
   if (h === 0)  return '12a';
@@ -101,7 +120,7 @@ function fmtAxisLabel(d) {
   return h < 12 ? `${h}a` : `${h - 12}p`;
 }
 
-/** Full time for hilo annotations: "2:34 PM" */
+// Full time for hilo annotations
 function fmtTimeExact(d) {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 }
@@ -124,12 +143,12 @@ function computeYTicks(dataMin, dataMax) {
   else if (range <= 16) step = 2;
   else                  step = 5;
 
-  const margin = step * 0.5;
+  const margin  = step * 0.5;
   const axisMin = Math.floor((dataMin - margin) / step) * step;
   const axisMax = Math.ceil ((dataMax + margin) / step) * step;
 
   const nSteps = Math.round((axisMax - axisMin) / step);
-  const ticks = [];
+  const ticks  = [];
   for (let i = 0; i <= nSteps; i++) {
     ticks.push(Math.round((axisMin + i * step) * 10) / 10);
   }
@@ -137,25 +156,16 @@ function computeYTicks(dataMin, dataMax) {
 }
 
 // ─── X-axis tick computation ──────────────────────────────────────────────────
-//
-// Picks a 3-hour or 6-hour step depending on available horizontal space.
-// Minimum comfortable label width ≈ 28px for "12a" at 11px mono.
-// 24-hour window across plotW pixels → px-per-hour = plotW/24.
-// 3h step → labels every plotW/8 px. At 280px plotW that's 35px — ok.
-// At 240px plotW that's 30px — marginal; switch to 6h step (60px gap).
-// Threshold: use 6h step when plotW < 280.
 
 function computeXTicks(winStart, winEnd, plotW) {
   const stepHours = plotW < 280 ? 6 : 3;
-
   const ticks = [];
   const d = new Date(winStart);
   d.setMinutes(0, 0, 0);
   const h = d.getHours();
-  const nextH = Math.ceil(h / stepHours) * stepHours;
-  if (nextH !== h) d.setHours(nextH % 24);
-  // handle day roll-over when nextH >= 24
-  if (nextH >= 24) d.setDate(d.getDate() + 1);
+  const rem = h % stepHours;
+  if (rem !== 0) d.setHours(h + (stepHours - rem));
+  if (d.getHours() === 0 && rem !== 0) {} // midnight roll handled by Date
 
   while (d <= winEnd) {
     if (d >= winStart) ticks.push(new Date(d));
@@ -171,40 +181,120 @@ async function fetchNoaa(stationId, beginDate, endDate, interval) {
     ...NOAA_BASE, station: stationId,
     begin_date: beginDate, end_date: endDate, interval,
   });
-  const url = `${NOAA_DATA_URL}?${params}`;
-  console.log(`[TideWatch] fetch interval=${interval}`, url);
-  const res = await fetch(url);
+  const res  = await fetch(`${NOAA_DATA_URL}?${params}`);
   if (!res.ok) throw new Error(`NOAA HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'NOAA API error');
   return data;
 }
 
-// ─── Load tide data ───────────────────────────────────────────────────────────
+// ─── Chunked data loading ─────────────────────────────────────────────────────
+//
+// Strategy: load in 5-day slabs. Track what we've loaded.
+// When the visible window is within PREFETCH_DAYS of a loaded edge,
+// start fetching the next slab silently in the background.
 
-async function loadTideData(station) {
-  const now      = new Date();
-  const winStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const winEnd   = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+const CHUNK_DAYS    = 5;   // days per NOAA fetch
+const PREFETCH_DAYS = 2;   // trigger prefetch when this close to edge
 
-  const fetchStart = new Date(winStart); fetchStart.setDate(fetchStart.getDate() - 1);
-  const fetchEnd   = new Date(winEnd);   fetchEnd.setDate(fetchEnd.getDate() + 1);
-
-  const [curveData, hiloData] = await Promise.all([
-    fetchNoaa(station.id, toNoaaDate(fetchStart), toNoaaDate(fetchEnd), '6'),
-    fetchNoaa(station.id, toNoaaDate(fetchStart), toNoaaDate(fetchEnd), 'hilo'),
-  ]);
-
-  tidePoints = (curveData.predictions || []).map(p => ({ t: parseNoaaTime(p.t), v: parseFloat(p.v) }));
-  hiloPoints = (hiloData.predictions  || []).map(p => ({ t: parseNoaaTime(p.t), v: parseFloat(p.v), type: p.type }));
-
-  console.log(`[TideWatch] ${tidePoints.length} curve pts, ${hiloPoints.length} hilo events`);
+function dayFloor(d) {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
 }
 
-window.tw = window.tw || {};
-window.tw.loadTideData  = loadTideData;
-window.tw.getTidePoints = () => tidePoints;
-window.tw.getHiloPoints = () => hiloPoints;
+function dayOffset(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+// Is a given date covered by our loaded chunks?
+function isCovered(t) {
+  return loadedChunks.some(c => t >= c.start && t <= c.end);
+}
+
+// Merge new points into sorted arrays (deduplicate by timestamp)
+function mergePoints(existing, incoming) {
+  const map = new Map(existing.map(p => [p.t.getTime(), p]));
+  for (const p of incoming) map.set(p.t.getTime(), p);
+  return [...map.values()].sort((a, b) => a.t - b.t);
+}
+
+async function fetchChunk(station, chunkStart, chunkEnd) {
+  if (fetchInFlight) return;
+  // Don't re-fetch a range we already have
+  if (isCovered(chunkStart) && isCovered(dayOffset(chunkEnd, -1))) return;
+
+  fetchInFlight = true;
+  console.log(`[TideWatch] Fetching chunk ${toNoaaDate(chunkStart)}–${toNoaaDate(chunkEnd)}`);
+
+  try {
+    const [curveData, hiloData] = await Promise.all([
+      fetchNoaa(station.id, toNoaaDate(chunkStart), toNoaaDate(chunkEnd), '6'),
+      fetchNoaa(station.id, toNoaaDate(chunkStart), toNoaaDate(chunkEnd), 'hilo'),
+    ]);
+
+    const newCurve = (curveData.predictions || []).map(p => ({
+      t: parseNoaaTime(p.t), v: parseFloat(p.v),
+    }));
+    const newHilo = (hiloData.predictions || []).map(p => ({
+      t: parseNoaaTime(p.t), v: parseFloat(p.v), type: p.type,
+    }));
+
+    tidePoints = mergePoints(tidePoints, newCurve);
+    hiloPoints = mergePoints(hiloPoints, newHilo);
+
+    loadedChunks.push({ start: chunkStart, end: chunkEnd });
+
+    // Recompute Y scale to include new data range
+    rebuildYScale();
+
+    console.log(`[TideWatch] Now have ${tidePoints.length} pts, ${hiloPoints.length} hilo`);
+  } catch (err) {
+    console.warn('[TideWatch] Chunk fetch failed:', err.message);
+  } finally {
+    fetchInFlight = false;
+  }
+}
+
+// Initial load: covers now−2d … now+3d (5-day chunk centered on today)
+async function initialLoad(station) {
+  const center = dayFloor(sessionNow);
+  const start  = dayOffset(center, -2);
+  const end    = dayOffset(center, +3);
+  await fetchChunk(station, start, end);
+}
+
+// Called each draw — ensures data exists for the current window,
+// and prefetches ahead/behind as needed. Fire-and-forget.
+function ensureData(winStart, winEnd) {
+  if (!stationInfo) return;
+
+  const prefetchAhead = new Date(winEnd.getTime()  + PREFETCH_DAYS * 86400000);
+  const prefetchBehind = new Date(winStart.getTime() - PREFETCH_DAYS * 86400000);
+
+  if (!isCovered(prefetchAhead)) {
+    const cs = dayFloor(winEnd);
+    const ce = dayOffset(cs, CHUNK_DAYS);
+    fetchChunk(stationInfo, cs, ce);
+  }
+
+  if (!isCovered(prefetchBehind)) {
+    const ce = dayFloor(winStart);
+    const cs = dayOffset(ce, -CHUNK_DAYS);
+    fetchChunk(stationInfo, cs, ce);
+  }
+}
+
+// ─── Y scale cache ────────────────────────────────────────────────────────────
+
+function rebuildYScale() {
+  if (!tidePoints.length) return;
+  const allV = tidePoints.map(p => p.v);
+  const { ticks, axisMin, axisMax } = computeYTicks(Math.min(...allV), Math.max(...allV));
+  yScaleCache = { ticks, yMin: axisMin, yMax: axisMax };
+}
 
 // ─── Canvas setup ─────────────────────────────────────────────────────────────
 
@@ -212,7 +302,6 @@ function setupCanvas() {
   const container = canvas.parentElement;
   const dpr  = window.devicePixelRatio || 1;
   const cssW = container.clientWidth;
-  // Taller aspect ratio on narrow screens so annotations have room
   const ratio = cssW < 340 ? 0.70 : cssW < 420 ? 0.62 : 0.54;
   const cssH  = Math.round(cssW * ratio);
 
@@ -239,91 +328,80 @@ function interpolateAtTime(t) {
   return null;
 }
 
-// ─── Chart renderer ───────────────────────────────────────────────────────────
+// ─── Main draw function ───────────────────────────────────────────────────────
 
 function drawChart() {
-  if (!tidePoints.length) return;
+  if (!tidePoints.length || !yScaleCache) return;
 
   const { w, h } = setupCanvas();
 
-  // ── Adaptive margins based on screen width ────────────────────────────────
-  // Narrower left on mobile since y-labels are shorter; keep top for annotations
   const isMobile = w < 420;
+
+  // Y-axis left padding nudged: mobile 44→50, desktop 52→58
   const pad = {
     top:    isMobile ? 34 : 38,
     right:  isMobile ? 12 : 20,
     bottom: isMobile ? 40 : 46,
-    left:   isMobile ? 44 : 52,
+    left:   isMobile ? 50 : 58,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
 
-  // ── Window ────────────────────────────────────────────────────────────────
-  const now      = new Date();
-  const winStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const winEnd   = new Date(now.getTime() + 12 * 60 * 60 * 1000);
-  const winSpan  = winEnd - winStart;
+  // ── Compute visible window from viewOffset ────────────────────────────────
+  const center   = new Date(sessionNow.getTime() + viewOffset);
+  const winStart = new Date(center.getTime() - 12 * 60 * 60 * 1000);
+  const winEnd   = new Date(center.getTime() + 12 * 60 * 60 * 1000);
+  const winSpan  = winEnd.getTime() - winStart.getTime();
 
-  const visible  = tidePoints.filter(p => p.t >= winStart && p.t <= winEnd);
+  // Trigger background data loads if needed (fire-and-forget)
+  ensureData(winStart, winEnd);
+
+  // ── Build curve array (visible + 1 extension point each side) ────────────
   const idxFirst = tidePoints.findIndex(p => p.t >= winStart);
-  const idxLast  = tidePoints.findIndex(p => p.t > winEnd);
+  const idxLast  = tidePoints.findIndex(p => p.t >  winEnd);
+  if (idxFirst === -1) return; // no data in window yet
+
   const extStart = idxFirst > 0 ? tidePoints[idxFirst - 1] : null;
-  const extEnd   = idxLast  > 0 ? tidePoints[idxLast]      : null;
+  const extEnd   = idxLast  > 0 ? tidePoints[idxLast]      : tidePoints[tidePoints.length - 1];
+  const visible  = tidePoints.slice(idxFirst, idxLast > 0 ? idxLast : undefined);
   const curve    = [extStart, ...visible, extEnd].filter(Boolean);
 
-  if (visible.length < 2) {
-    showChartError('Not enough tide data for this window. Try reloading.');
-    return;
-  }
+  if (visible.length < 2) return;
 
-  // ── Y scale ───────────────────────────────────────────────────────────────
-  const allV = tidePoints.map(p => p.v);
-  const { ticks: yTicks, axisMin: yMin, axisMax: yMax } =
-    computeYTicks(Math.min(...allV), Math.max(...allV));
-
-  // ── X ticks — width-aware ─────────────────────────────────────────────────
-  const xTicks = computeXTicks(winStart, winEnd, plotW);
+  // ── Y scale (stable, from cache) ──────────────────────────────────────────
+  const { ticks: yTicks, yMin, yMax } = yScaleCache;
 
   // ── Coordinate mappers ────────────────────────────────────────────────────
-  const xOf = t => pad.left + ((t - winStart) / winSpan) * plotW;
-  const yOf = v => pad.top  + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+  const xOf = t  => pad.left + ((t.getTime() - winStart.getTime()) / winSpan) * plotW;
+  const yOf = v  => pad.top  + (1 - (v - yMin) / (yMax - yMin)) * plotH;
 
-  // ── Clear + background ────────────────────────────────────────────────────
+  // ── Clear ─────────────────────────────────────────────────────────────────
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = C.navyMid;
   ctx.fillRect(0, 0, w, h);
 
-  // ── Horizontal grid + y-axis labels ──────────────────────────────────────
-  const yFontSize = isMobile ? 11 : 12;
+  // ── Horizontal grid lines (full width, drawn behind everything) ───────────
   ctx.save();
-  ctx.strokeStyle  = C.gridLine;
-  ctx.lineWidth    = 1;
+  ctx.strokeStyle = C.gridLine;
+  ctx.lineWidth   = 1;
   ctx.setLineDash([4, 7]);
-
   yTicks.forEach(v => {
     const y = yOf(v);
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(pad.left + plotW, y);
     ctx.stroke();
-
-    const label = Number.isInteger(v) ? String(v) : v.toFixed(1);
-    ctx.fillStyle    = C.textSecond;
-    ctx.font         = `${yFontSize}px "DM Mono", monospace`;
-    ctx.textAlign    = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, pad.left - 6, y);
   });
   ctx.restore();
 
-  // ── Vertical grid lines + tick marks + x-axis labels ─────────────────────
+  // ── X-axis: vertical grid lines + ticks + labels (scrolling) ─────────────
+  const xTicks    = computeXTicks(winStart, winEnd, plotW);
   const xFontSize = isMobile ? 11 : 12;
   ctx.save();
-
   xTicks.forEach(t => {
     const x = xOf(t);
 
-    // Dashed vertical grid line
+    // Dashed grid line
     ctx.strokeStyle = C.gridLine;
     ctx.lineWidth   = 1;
     ctx.setLineDash([2, 9]);
@@ -332,7 +410,7 @@ function drawChart() {
     ctx.lineTo(x, pad.top + plotH);
     ctx.stroke();
 
-    // Solid tick mark below plot border
+    // Solid tick below plot
     ctx.strokeStyle = C.textMuted;
     ctx.lineWidth   = 1;
     ctx.setLineDash([]);
@@ -348,16 +426,15 @@ function drawChart() {
     ctx.textBaseline = 'top';
     ctx.fillText(fmtAxisLabel(t), x, pad.top + plotH + 6);
   });
-
   ctx.restore();
 
-  // ── Clip region ───────────────────────────────────────────────────────────
+  // ── Clip to plot area ─────────────────────────────────────────────────────
   ctx.save();
   ctx.beginPath();
   ctx.rect(pad.left, pad.top, plotW, plotH);
   ctx.clip();
 
-  // ── Fill ──────────────────────────────────────────────────────────────────
+  // ── Filled area ───────────────────────────────────────────────────────────
   const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
   grad.addColorStop(0, C.fillTop);
   grad.addColorStop(1, C.fillBot);
@@ -400,25 +477,23 @@ function drawChart() {
   ctx.strokeRect(pad.left, pad.top, plotW, plotH);
   ctx.restore();
 
-  // ── High / Low tide annotations ───────────────────────────────────────────
-  //
-  // Scale annotation geometry to plotW so mobile labels don't collide.
-  // At 260px plotW a label block is ~44px wide (half = 22px).
-  // At 380px plotW it's ~48px (half = 24px). Clamp between 20–28.
+  // ── High / Low annotations ────────────────────────────────────────────────
   const DOT_R      = isMobile ? 3.5 : 4;
   const GAP        = 5;
   const LBL_HALF_W = Math.round(Math.min(28, Math.max(20, plotW / 10)));
-  const HT_FONT    = isMobile ? 12 : 13;  // height value font size
-  const TM_FONT    = isMobile ? 10 : 12;  // time font size
-  const LBL_HT_H   = HT_FONT + 3;        // height line height
-  const LBL_TM_H   = TM_FONT + 2;        // time line height
-  const LBL_H      = LBL_HT_H + LBL_TM_H + 2; // total two-line block
+  const HT_FONT    = isMobile ? 12 : 13;
+  const TM_FONT    = isMobile ? 10 : 12;
+  const LBL_HT_H   = HT_FONT + 3;
+  const LBL_TM_H   = TM_FONT + 2;
+  const LBL_H      = LBL_HT_H + LBL_TM_H + 2;
 
-  // Minimum horizontal gap between label centers before we drop time line
-  // Approx: each label is LBL_HALF_W*2 wide; labels need >4px between them
-  const minLabelSpacing = LBL_HALF_W * 2 + 4;
+  const visibleHilo = hiloPoints.filter(p => p.t >= winStart && p.t <= winEnd);
+  const hiloXPos    = visibleHilo.map(p => xOf(p.t));
+  const tightlyPacked = visibleHilo.length >= 2 &&
+    hiloXPos.some((x, i) => i > 0 && Math.abs(x - hiloXPos[i-1]) < LBL_HALF_W * 2 + 4);
+  const showTimeLine  = !tightlyPacked;
+  const effectiveLblH = showTimeLine ? LBL_H : LBL_HT_H;
 
-  // Collision registry
   const occupied = [];
   function overlaps(r) {
     return occupied.some(o =>
@@ -426,28 +501,13 @@ function drawChart() {
     );
   }
 
-  const visibleHilo = hiloPoints.filter(p => p.t >= winStart && p.t <= winEnd);
-
-  // Pre-check x spacing between consecutive hilo labels — if too tight, suppress time
-  const hiloXPositions = visibleHilo.map(p => xOf(p.t));
-  const tightlyPacked  = visibleHilo.length >= 2 &&
-    hiloXPositions.some((x, i) =>
-      i > 0 && Math.abs(x - hiloXPositions[i-1]) < minLabelSpacing
-    );
-  const showTimeLine = !tightlyPacked;
-
-  // Effective label block height depends on whether we show time
-  const effectiveLblH = showTimeLine ? LBL_H : LBL_HT_H;
-
   visibleHilo.forEach(p => {
     const px = xOf(p.t);
     const py = yOf(p.v);
     const isHigh   = p.type === 'H';
     const txtColor = isHigh ? C.hiLabel : C.loLabel;
-    const heightTxt = `${p.v.toFixed(1)} ft`;
-    const timeTxt   = fmtTimeExact(p.t);
 
-    // Dot on the curve
+    // Dot
     ctx.save();
     ctx.beginPath();
     ctx.arc(px, py, DOT_R, 0, Math.PI * 2);
@@ -459,7 +519,6 @@ function drawChart() {
     ctx.stroke();
     ctx.restore();
 
-    // Clamp label center within plot bounds
     const cx = Math.max(pad.left + LBL_HALF_W + 1,
                  Math.min(px, pad.left + plotW - LBL_HALF_W - 1));
 
@@ -467,53 +526,37 @@ function drawChart() {
       const labelY = above
         ? py - DOT_R - GAP - effectiveLblH
         : py + DOT_R + GAP;
-      const r = {
-        xMin: cx - LBL_HALF_W, xMax: cx + LBL_HALF_W,
-        yMin: labelY,           yMax: labelY + effectiveLblH,
-      };
-      // Allow into top margin but not off top of canvas, and not below plot bottom
-      if (r.yMin < 1)               return null;
-      if (r.yMax > pad.top + plotH) return null;
-      if (overlaps(r))              return null;
+      const r = { xMin: cx - LBL_HALF_W, xMax: cx + LBL_HALF_W,
+                  yMin: labelY, yMax: labelY + effectiveLblH };
+      if (r.yMin < 1 || r.yMax > pad.top + plotH || overlaps(r)) return null;
       return { labelY, r };
     }
 
-    const preferAbove = isHigh;
     const placement =
-      tryPlace(preferAbove) ||
-      tryPlace(!preferAbove) ||
-      { labelY: preferAbove
-          ? py - DOT_R - GAP - effectiveLblH
-          : py + DOT_R + GAP,
-        r: null };
+      tryPlace(isHigh) || tryPlace(!isHigh) ||
+      { labelY: isHigh ? py - DOT_R - GAP - effectiveLblH : py + DOT_R + GAP, r: null };
 
     if (placement.r) occupied.push(placement.r);
 
     ctx.save();
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'top';
-
-    // Height value — always shown
-    ctx.font      = `500 ${HT_FONT}px "DM Mono", monospace`;
-    ctx.fillStyle = txtColor;
-    ctx.fillText(heightTxt, cx, placement.labelY);
-
-    // Time — only when spacing permits
+    ctx.font         = `500 ${HT_FONT}px "DM Mono", monospace`;
+    ctx.fillStyle    = txtColor;
+    ctx.fillText(`${p.v.toFixed(1)} ft`, cx, placement.labelY);
     if (showTimeLine) {
       ctx.font      = `${TM_FONT}px "DM Mono", monospace`;
       ctx.fillStyle = C.textSecond;
-      ctx.fillText(timeTxt, cx, placement.labelY + LBL_HT_H);
+      ctx.fillText(fmtTimeExact(p.t), cx, placement.labelY + LBL_HT_H);
     }
-
     ctx.restore();
   });
 
-  // ── "Now" marker ──────────────────────────────────────────────────────────
-  const nowX = xOf(now);
+  // ── Now marker ────────────────────────────────────────────────────────────
+  // nowX is always computed from the real sessionNow, regardless of viewOffset
+  const nowX = xOf(sessionNow);
 
   ctx.save();
-
-  // Dashed line
   ctx.strokeStyle = C.nowLine;
   ctx.lineWidth   = 1.5;
   ctx.setLineDash([5, 4]);
@@ -523,8 +566,7 @@ function drawChart() {
   ctx.lineTo(nowX, pad.top + plotH);
   ctx.stroke();
 
-  // Dot on curve
-  const nowV = interpolateAtTime(now);
+  const nowV = interpolateAtTime(sessionNow);
   if (nowV !== null) {
     const nowY = yOf(nowV);
     ctx.setLineDash([]);
@@ -537,30 +579,154 @@ function drawChart() {
     ctx.stroke();
   }
 
-  // "now" label — clamp away from both edges
+  // "now" label — in top margin
   ctx.setLineDash([]);
   ctx.font         = `500 ${isMobile ? 11 : 12}px "DM Mono", monospace`;
   ctx.fillStyle    = C.textPrimary;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'bottom';
-  const nowLabelX  = Math.max(nowX, pad.left + 18);
+  // Keep label inside plot left bound
+  const nowLabelX = Math.max(nowX, pad.left + 18);
   ctx.fillText('now', nowLabelX, pad.top - 4);
+  ctx.restore();
 
+  // ── Y-axis overlay — drawn LAST, covers scrolling grid lines ─────────────
+  // Opaque strip from canvas left to pad.left, then y-axis labels on top.
+  // This gives the fixed y-axis effect without a second canvas.
+  drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile);
+
+  // ── Update header text ────────────────────────────────────────────────────
+  updateHeader(winStart, winEnd, center);
+}
+
+// ─── Fixed Y-axis overlay ─────────────────────────────────────────────────────
+// Paints an opaque strip over the left margin so scrolling grid lines
+// don't bleed into the y-label area. Labels are then drawn on top.
+
+function drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile) {
+  const yFontSize = isMobile ? 11 : 12;
+
+  // Opaque background strip (matches page background, not navy-mid)
+  ctx.save();
+  ctx.fillStyle = C.navyMid;
+  ctx.fillRect(0, 0, pad.left, pad.top + plotH + 2);
+  ctx.restore();
+
+  // Y-axis tick labels
+  ctx.save();
+  yTicks.forEach(v => {
+    const y    = yOf(v);
+    const label = Number.isInteger(v) ? String(v) : v.toFixed(1);
+    ctx.fillStyle    = C.textSecond;
+    ctx.font         = `${yFontSize}px "DM Mono", monospace`;
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, pad.left - 6, y);
+  });
   ctx.restore();
 }
 
-// ─── Header update ────────────────────────────────────────────────────────────
+// ─── Header text update ───────────────────────────────────────────────────────
 
-function updateHeader() {
-  const now      = new Date();
-  const winStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-  const winEnd   = new Date(now.getTime() + 12 * 60 * 60 * 1000);
-
+function updateHeader(winStart, winEnd, center) {
+  if (!center) {
+    center = new Date(sessionNow.getTime() + viewOffset);
+    const h12 = 12 * 60 * 60 * 1000;
+    winStart = new Date(center.getTime() - h12);
+    winEnd   = new Date(center.getTime() + h12);
+  }
   chartDateLabel.textContent =
     winStart.toDateString() === winEnd.toDateString()
-      ? fmtDateFull(now)
+      ? fmtDateFull(center)
       : `${fmtDateShort(winStart)} – ${fmtDateShort(winEnd)}`;
 }
+
+// ─── Touch / inertia interaction ──────────────────────────────────────────────
+
+let touch = {
+  active:    false,
+  startX:    0,
+  startOff:  0,       // viewOffset at touch start
+  lastX:     0,
+  lastTime:  0,
+  velX:      0,       // px/ms velocity at touchend
+};
+
+let inertiaRaf = null;
+
+// ms of chart time per pixel — derived from canvas width and 24h window
+function msPerPx() {
+  const cssW = canvas.clientWidth || canvas.offsetWidth || 320;
+  const isMobile = cssW < 420;
+  const leftPad  = isMobile ? 50 : 58;
+  const rightPad = isMobile ? 12 : 20;
+  const plotW    = cssW - leftPad - rightPad;
+  return (24 * 60 * 60 * 1000) / plotW; // 24h window / plot pixels
+}
+
+function cancelInertia() {
+  if (inertiaRaf) { cancelAnimationFrame(inertiaRaf); inertiaRaf = null; }
+}
+
+function startInertia(velPxPerMs) {
+  // velPxPerMs: positive = dragged right (going into past), negative = future
+  const FRICTION = 0.96; // velocity multiplier per 16ms frame
+  const MIN_VEL  = 0.04; // px/ms below which we stop
+
+  let vel = velPxPerMs;
+
+  function step() {
+    vel *= FRICTION;
+    if (Math.abs(vel) < MIN_VEL) { inertiaRaf = null; return; }
+
+    viewOffset -= vel * msPerPx() * 16;
+    drawChart();
+    inertiaRaf = requestAnimationFrame(step);
+  }
+
+  inertiaRaf = requestAnimationFrame(step);
+}
+
+canvas.addEventListener('touchstart', e => {
+  cancelInertia();
+  const t = e.touches[0];
+  touch.active   = true;
+  touch.startX   = t.clientX;
+  touch.startOff = viewOffset;
+  touch.lastX    = t.clientX;
+  touch.lastTime = e.timeStamp;
+  touch.velX     = 0;
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  if (!touch.active) return;
+  e.preventDefault(); // prevent page scroll while scrubbing chart
+
+  const t   = e.touches[0];
+  const dx  = t.clientX - touch.startX; // px moved since touch start
+  viewOffset = touch.startOff - dx * msPerPx();
+
+  // Track instantaneous velocity for inertia (exponential moving average)
+  const dt = e.timeStamp - touch.lastTime;
+  if (dt > 0) {
+    const instVel = (t.clientX - touch.lastX) / dt;
+    touch.velX    = touch.velX * 0.6 + instVel * 0.4;
+  }
+  touch.lastX    = t.clientX;
+  touch.lastTime = e.timeStamp;
+
+  drawChart();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (!touch.active) return;
+  touch.active = false;
+
+  // Only trigger inertia if final velocity is meaningful
+  if (Math.abs(touch.velX) > 0.1) {
+    startInertia(touch.velX);
+  }
+}, { passive: true });
 
 // ─── Show chart ───────────────────────────────────────────────────────────────
 
@@ -571,14 +737,22 @@ function showChart() {
   drawChart();
 }
 
-// ─── Station selection event ──────────────────────────────────────────────────
+// ─── Station selection ────────────────────────────────────────────────────────
 
 document.addEventListener('stationSelected', async (e) => {
-  stationInfo = e.detail;
+  stationInfo  = e.detail;
+  sessionNow   = new Date();
+  viewOffset   = 0;
+  tidePoints   = [];
+  hiloPoints   = [];
+  yScaleCache  = null;
+  loadedChunks.length = 0;
+
   chartSection.classList.remove('hidden');
   setChartStatus('loading', 'Loading tide data', `Fetching predictions for ${stationInfo.name}…`);
+
   try {
-    await loadTideData(stationInfo);
+    await initialLoad(stationInfo);
     showChart();
   } catch (err) {
     console.error('[TideWatch] Tide data error:', err);
@@ -586,12 +760,21 @@ document.addEventListener('stationSelected', async (e) => {
   }
 });
 
-// ─── Resize handler ───────────────────────────────────────────────────────────
+// ─── Resize ───────────────────────────────────────────────────────────────────
 
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (!chartCard.classList.contains('hidden')) { updateHeader(); drawChart(); }
+    if (!chartCard.classList.contains('hidden')) drawChart();
   }, 120);
 });
+
+// ─── Public API for future modules ───────────────────────────────────────────
+
+window.tw = window.tw || {};
+window.tw.getViewOffset  = () => viewOffset;
+window.tw.setViewOffset  = (ms) => { viewOffset = ms; drawChart(); };
+window.tw.getTidePoints  = () => tidePoints;
+window.tw.getHiloPoints  = () => hiloPoints;
+window.tw.getSessionNow  = () => sessionNow;
