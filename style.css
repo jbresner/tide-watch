@@ -1,0 +1,330 @@
+/* ─────────────────────────────────────────
+   TideWatch — style.css
+   Aesthetic: coastal instrument panel
+   Palette: deep navy, tide blue, seafoam, sand
+───────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --navy:        #0b1622;
+  --navy-mid:    #111f30;
+  --navy-light:  #1a2f45;
+  --tide:        #1e6fa8;
+  --tide-bright: #2e9fd4;
+  --seafoam:     #4ecdc4;
+  --sand:        #c8b99a;
+  --sand-light:  #e8ddd0;
+  --text-primary:   #dce8f0;
+  --text-secondary: #7fa3b8;
+  --text-muted:     #3d5a6e;
+  --success:     #4ecdc4;
+  --warning:     #f4a261;
+  --error:       #e76f51;
+
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--navy);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+/* ── Header ── */
+
+#app-header {
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--navy-light);
+  margin-bottom: 28px;
+}
+
+#brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#brand-mark {
+  color: var(--seafoam);
+  font-size: 20px;
+  line-height: 1;
+  animation: pulse-mark 3s ease-in-out infinite;
+}
+
+@keyframes pulse-mark {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+#brand-name {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+#version {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-left: auto;
+}
+
+/* ── Utility ── */
+
+.hidden {
+  display: none !important;
+}
+
+/* ── Status card ── */
+
+#status-section {
+  margin-bottom: 20px;
+}
+
+#status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+#status-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: color 0.4s;
+}
+
+#status-icon.status-waiting  { color: var(--text-muted); animation: spin 2s linear infinite; }
+#status-icon.status-locating { color: var(--tide-bright); animation: spin 1.2s linear infinite; }
+#status-icon.status-loading  { color: var(--seafoam);    animation: spin 0.9s linear infinite; }
+#status-icon.status-done     { color: var(--success);    animation: none; }
+#status-icon.status-error    { color: var(--error);      animation: none; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+#status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#status-headline {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+#status-detail {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* ── Station card ── */
+
+#station-section {
+  margin-bottom: 20px;
+  animation: fade-up 0.4s ease both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#station-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+#station-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+#station-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+#station-type-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+
+#station-type-badge.harmonic {
+  color: var(--seafoam);
+  border-color: var(--seafoam);
+  background: rgba(78, 205, 196, 0.08);
+}
+
+#station-type-badge.subordinate {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: rgba(244, 162, 97, 0.08);
+}
+
+#station-name {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+#station-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+#station-meta span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+#candidates-toggle {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--tide-bright);
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+#candidates-toggle:hover {
+  color: var(--seafoam);
+}
+
+#candidates-list {
+  margin-top: 12px;
+  border-top: 1px solid var(--navy-light);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.candidate-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.candidate-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.candidate-dist {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.candidate-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.candidate-type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.candidate-type.harmonic    { color: var(--seafoam); }
+.candidate-type.subordinate { color: var(--warning); }
+
+/* ── User coords card ── */
+
+#user-section {
+  animation: fade-up 0.5s 0.1s ease both;
+}
+
+#user-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#user-coords-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+#user-coords-display {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── Responsive ── */
+
+@media (min-width: 520px) {
+  #app {
+    padding: 0 0 60px;
+  }
+}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TideWatch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="app">
+
+    <header id="app-header">
+      <div id="brand">
+        <span id="brand-mark">◈</span>
+        <span id="brand-name">TideWatch</span>
+        <span id="version">v1.0</span>
+      </div>
+    </header>
+
+    <main id="main-content">
+
+      <!-- Phase 1: Station lookup status -->
+      <section id="status-section">
+        <div id="status-card">
+          <div id="status-icon" class="status-waiting">◎</div>
+          <div id="status-text">
+            <p id="status-headline">Locating you</p>
+            <p id="status-detail">Requesting geolocation permission…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Station result card (hidden until found) -->
+      <section id="station-section" class="hidden">
+        <div id="station-card">
+          <div id="station-header">
+            <span id="station-label">Nearest tide station</span>
+            <span id="station-type-badge"></span>
+          </div>
+          <div id="station-name"></div>
+          <div id="station-meta">
+            <span id="station-id-display"></span>
+            <span id="station-distance"></span>
+            <span id="station-coords"></span>
+          </div>
+          <div id="candidates-toggle" onclick="toggleCandidates()">Show nearby candidates ▾</div>
+          <div id="candidates-list" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- User coords debug (collapsed by default) -->
+      <section id="user-section" class="hidden">
+        <div id="user-card">
+          <span id="user-coords-label">Your position</span>
+          <span id="user-coords-display"></span>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="station.js"></script>
+</body>
+</html>
