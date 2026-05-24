@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css
+   TideWatch — style.css  v1.2
    Aesthetic: coastal instrument panel
    Palette: deep navy, tide blue, seafoam, sand
 ───────────────────────────────────────── */
@@ -19,12 +19,15 @@
   --seafoam:     #4ecdc4;
   --sand:        #c8b99a;
   --sand-light:  #e8ddd0;
-  --text-primary:   #dce8f0;
-  --text-secondary: #7fa3b8;
-  --text-muted:     #3d5a6e;
-  --success:     #4ecdc4;
-  --warning:     #f4a261;
-  --error:       #e76f51;
+
+  /* Contrast-safe text scale */
+  --text-primary:   #e8f2f8;   /* near-white, high contrast on navy */
+  --text-secondary: #93bcd1;   /* mid blue-gray, readable on navy-mid */
+  --text-muted:     #5a8aa0;   /* subtle but clears AA on navy-mid */
+
+  --success:  #4ecdc4;
+  --warning:  #f4a261;
+  --error:    #e76f51;
 
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
@@ -40,7 +43,7 @@ html, body {
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -48,9 +51,9 @@ html, body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  max-width: 480px;
+  max-width: 520px;
   margin: 0 auto;
-  padding: 0 20px 40px;
+  padding: 0 20px 48px;
 }
 
 /* ── Header ── */
@@ -76,7 +79,7 @@ html, body {
 
 @keyframes pulse-mark {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
+  50%       { opacity: 0.45; }
 }
 
 #brand-name {
@@ -90,7 +93,7 @@ html, body {
 
 #version {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;           /* was 10px */
   color: var(--text-muted);
   letter-spacing: 0.08em;
   margin-left: auto;
@@ -102,7 +105,7 @@ html, body {
   display: none !important;
 }
 
-/* ── Status card ── */
+/* ── Status card (geolocation / station lookup) ── */
 
 #status-section {
   margin-bottom: 20px;
@@ -126,11 +129,11 @@ html, body {
   transition: color 0.4s;
 }
 
-#status-icon.status-waiting  { color: var(--text-muted); animation: spin 2s linear infinite; }
-#status-icon.status-locating { color: var(--tide-bright); animation: spin 1.2s linear infinite; }
-#status-icon.status-loading  { color: var(--seafoam);    animation: spin 0.9s linear infinite; }
-#status-icon.status-done     { color: var(--success);    animation: none; }
-#status-icon.status-error    { color: var(--error);      animation: none; }
+#status-icon.status-waiting  { color: var(--text-muted);  animation: spin 2s linear infinite; }
+#status-icon.status-locating { color: var(--tide-bright);  animation: spin 1.2s linear infinite; }
+#status-icon.status-loading  { color: var(--seafoam);      animation: spin 0.9s linear infinite; }
+#status-icon.status-done     { color: var(--success);      animation: none; }
+#status-icon.status-error    { color: var(--error);        animation: none; }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -140,11 +143,11 @@ html, body {
 #status-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 #status-headline {
-  font-size: 15px;
+  font-size: 16px;           /* was 15px */
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -182,7 +185,7 @@ html, body {
 }
 
 #station-label {
-  font-size: 10px;
+  font-size: 11px;           /* was 10px */
   font-family: var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -190,11 +193,11 @@ html, body {
 }
 
 #station-type-badge {
-  font-size: 10px;
+  font-size: 11px;           /* was 10px */
   font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 20px;
   border: 1px solid;
 }
@@ -202,17 +205,17 @@ html, body {
 #station-type-badge.harmonic {
   color: var(--seafoam);
   border-color: var(--seafoam);
-  background: rgba(78, 205, 196, 0.08);
+  background: rgba(78, 205, 196, 0.09);
 }
 
 #station-type-badge.subordinate {
   color: var(--warning);
   border-color: var(--warning);
-  background: rgba(244, 162, 97, 0.08);
+  background: rgba(244, 162, 97, 0.09);
 }
 
 #station-name {
-  font-size: 22px;
+  font-size: 24px;           /* was 22px */
   font-weight: 300;
   color: var(--text-primary);
   line-height: 1.2;
@@ -223,18 +226,18 @@ html, body {
 #station-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px 16px;
   margin-bottom: 16px;
 }
 
 #station-meta span {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;           /* was 12px */
   color: var(--text-secondary);
 }
 
 #candidates-toggle {
-  font-size: 12px;
+  font-size: 13px;           /* was 12px */
   font-family: var(--font-mono);
   color: var(--tide-bright);
   cursor: pointer;
@@ -260,31 +263,31 @@ html, body {
 .candidate-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px 12px;
+  gap: 3px 12px;
   align-items: baseline;
 }
 
 .candidate-name {
-  font-size: 13px;
+  font-size: 14px;           /* was 13px */
   color: var(--text-secondary);
 }
 
 .candidate-dist {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;           /* was 11px */
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .candidate-id {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;           /* was 11px */
   color: var(--text-muted);
 }
 
 .candidate-type {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;           /* was 10px */
   letter-spacing: 0.06em;
 }
 
@@ -294,6 +297,7 @@ html, body {
 /* ── User coords card ── */
 
 #user-section {
+  margin-bottom: 20px;
   animation: fade-up 0.5s 0.1s ease both;
 }
 
@@ -308,7 +312,7 @@ html, body {
 }
 
 #user-coords-label {
-  font-size: 10px;
+  font-size: 11px;           /* was 10px */
   font-family: var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -317,27 +321,21 @@ html, body {
 
 #user-coords-display {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;           /* was 12px */
   color: var(--text-secondary);
-}
-
-/* ── Responsive ── */
-
-@media (min-width: 520px) {
-  #app {
-    padding: 0 0 60px;
-  }
 }
 
 /* ── Chart section ── */
 
 #chart-section {
-  margin-top: 20px;
+  margin-top: 4px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   animation: fade-up 0.4s ease both;
 }
+
+/* Chart status (loading/error inside chart section) */
 
 #chart-status-card {
   display: flex;
@@ -359,11 +357,11 @@ html, body {
 #chart-status-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 #chart-status-headline {
-  font-size: 15px;
+  font-size: 16px;           /* was 15px */
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -374,32 +372,39 @@ html, body {
   font-family: var(--font-mono);
 }
 
+/* Chart card */
+
 #chart-card {
   background: var(--navy-mid);
   border: 1px solid var(--navy-light);
   border-radius: var(--radius-md);
-  padding: 16px 16px 12px;
+  padding: 18px 16px 14px;
 }
 
 #chart-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  gap: 8px;
 }
 
 #chart-date-label {
-  font-size: 15px;
+  font-size: 16px;           /* was 15px */
   font-weight: 500;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
 }
 
 #chart-range-label {
-  font-size: 11px;
+  font-size: 12px;           /* was 11px */
   font-family: var(--font-mono);
   color: var(--text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 #chart-container {
@@ -418,16 +423,28 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 12px;
+  gap: 8px;
 }
 
 #chart-datum-label,
 #chart-station-mini {
-  font-size: 10px;
+  font-size: 12px;           /* was 10px */
   font-family: var(--font-mono);
   color: var(--text-muted);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
+
+#chart-station-mini {
+  color: var(--text-secondary);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chart error */
 
 #chart-error-card {
   display: flex;
@@ -440,21 +457,34 @@ html, body {
 }
 
 #chart-error-icon {
-  font-size: 18px;
+  font-size: 20px;
   color: var(--error);
   flex-shrink: 0;
   margin-top: 1px;
 }
 
+#chart-error-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
 #chart-error-headline {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 4px;
 }
 
 #chart-error-detail {
   font-size: 13px;
   font-family: var(--font-mono);
   color: var(--text-secondary);
+}
+
+/* ── Responsive ── */
+
+@media (min-width: 540px) {
+  #app {
+    padding: 0 0 60px;
+  }
 }
