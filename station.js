@@ -131,17 +131,15 @@ function renderStation(station, allCandidates) {
   stationName.textContent = station.name;
   stationIdDisplay.textContent = `ID ${station.id}`;
 
-  // Candidates list
+  // Candidates list — name and ID only, no type label
   candidatesList.innerHTML = '';
   allCandidates.forEach(s => {
     const isSelected = s.id === station.id;
     const row = document.createElement('div');
     row.className = 'candidate-row' + (isSelected ? ' selected-station' : '');
-    const tl = stationTypeLabel(s);
     row.innerHTML = `
       <span class="candidate-name">${isSelected ? '▸ ' : ''}${s.name}</span>
       <span class="candidate-id">${s.id}</span>
-      <span class="candidate-type ${tl}">${tl}</span>
     `;
     candidatesList.appendChild(row);
   });
