@@ -60,10 +60,46 @@
         </div>
       </section>
 
+      <!-- Tide chart (populated by chart.js after station is found) -->
+      <section id="chart-section" class="hidden">
+
+        <div id="chart-status-card" class="hidden">
+          <div id="chart-status-icon" class="status-loading">◎</div>
+          <div id="chart-status-text">
+            <p id="chart-status-headline">Loading tide data</p>
+            <p id="chart-status-detail">Fetching predictions from NOAA…</p>
+          </div>
+        </div>
+
+        <div id="chart-card" class="hidden">
+          <div id="chart-header">
+            <div id="chart-date-label"></div>
+            <div id="chart-range-label">Next 24 hours</div>
+          </div>
+          <div id="chart-container">
+            <canvas id="tide-canvas"></canvas>
+          </div>
+          <div id="chart-footer">
+            <span id="chart-datum-label">Datum: MLLW · English units</span>
+            <span id="chart-station-mini"></span>
+          </div>
+        </div>
+
+        <div id="chart-error-card" class="hidden">
+          <div id="chart-error-icon">⚠</div>
+          <div id="chart-error-text">
+            <p id="chart-error-headline">Tide data unavailable</p>
+            <p id="chart-error-detail"></p>
+          </div>
+        </div>
+
+      </section>
+
     </main>
 
   </div>
 
   <script src="station.js"></script>
+  <script src="chart.js"></script>
 </body>
 </html>

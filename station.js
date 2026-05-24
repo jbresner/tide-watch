@@ -175,6 +175,9 @@ function renderStation(station, allCandidates) {
 
   stationSection.classList.remove('hidden');
   console.log('[TideWatch] Selected station:', station);
+
+  // Notify other modules
+  document.dispatchEvent(new CustomEvent('stationSelected', { detail: station }));
 }
 
 // ─── Toggle candidates list ───────────────────────────────────────────────────

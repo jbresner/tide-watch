@@ -328,3 +328,133 @@ html, body {
     padding: 0 0 60px;
   }
 }
+
+/* ── Chart section ── */
+
+#chart-section {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fade-up 0.4s ease both;
+}
+
+#chart-status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+#chart-status-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+#chart-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#chart-status-headline {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+#chart-status-detail {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+#chart-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: 16px 16px 12px;
+}
+
+#chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+#chart-date-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+#chart-range-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+#chart-container {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+#tide-canvas {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+#chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+#chart-datum-label,
+#chart-station-mini {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+#chart-error-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--navy-mid);
+  border: 1px solid rgba(231, 111, 81, 0.3);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+#chart-error-icon {
+  font-size: 18px;
+  color: var(--error);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+#chart-error-headline {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+#chart-error-detail {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
