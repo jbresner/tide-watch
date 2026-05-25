@@ -1,8 +1,10 @@
 /**
- * TideWatch — chart.js  v2.7
+ * TideWatch — chart.js  v2.8
  *
- * Changes from v2.6:
- *  - pad.left/right set to 0 — curve runs edge-to-edge
+ * Changes from v2.7:
+ *  - initialLoad now stores ±14-day hilo into hiloPoints immediately
+ *  - Hilo annotations available for full ±14-day window from first render
+ *  - Eliminates flickering at chunk boundaries during scrubbing
  */
 
 'use strict';
@@ -258,26 +260,35 @@ async function fetchChunk(station, chunkStart, chunkEnd) {
 async function initialLoad(station) {
   const center = dayFloor(sessionNow);
 
-  // Step 1: hilo-only over ±14 days → establishes stable y-axis range
+  // Step 1: hilo-only over ±14 days — establishes y-scale AND populates all
+  // hilo annotations upfront so they never flicker during lazy curve loading.
   const scaleStart = dayOffset(center, -14);
   const scaleEnd   = dayOffset(center, +14);
   try {
     const hiloData = await fetchNoaa(
       station.id, toNoaaDate(scaleStart), toNoaaDate(scaleEnd), 'hilo'
     );
-    const scalePts = (hiloData.predictions || []).map(p => parseFloat(p.v));
+    const parsed = (hiloData.predictions || []).map(p => ({
+      t: parseNoaaTime(p.t), v: parseFloat(p.v), type: p.type,
+    }));
+
+    // Populate hiloPoints immediately — annotations available for full ±14d window
+    hiloPoints = mergePoints(hiloPoints, parsed);
+
+    const scalePts = parsed.map(p => p.v);
     if (scalePts.length) {
       const { ticks, axisMin, axisMax } =
         computeYTicks(Math.min(...scalePts), Math.max(...scalePts));
       yScaleCache  = { ticks, yMin: axisMin, yMax: axisMax };
       yScaleLocked = true;
-      console.log(`[TideWatch] Y-scale locked: ${axisMin.toFixed(1)}–${axisMax.toFixed(1)} ft`);
+      console.log(`[TideWatch] Y-scale locked: ${axisMin.toFixed(1)}–${axisMax.toFixed(1)} ft, ${parsed.length} hilo pts loaded`);
     }
   } catch (err) {
-    console.warn('[TideWatch] Scale prefetch failed, will use curve data:', err.message);
+    console.warn('[TideWatch] Scale/hilo prefetch failed:', err.message);
   }
 
-  // Step 2: full curve + hilo for the initial visible window (5 days)
+  // Step 2: 6-minute curve for initial visible window (5 days)
+  // fetchChunk also fetches hilo for this range — mergePoints deduplicates safely
   const start = dayOffset(center, -2);
   const end   = dayOffset(center, +3);
   await fetchChunk(station, start, end);
