@@ -1,14 +1,13 @@
 /**
- * TideWatch — chart.js  v1.9
+ * TideWatch — chart.js  v2.0
  *
- * Changes from v1.8:
- *  - Center marker replaces "now" marker — fixed at plot center, never moves
- *  - "now" label removed entirely; no text label on the center line
- *  - selectedTime = sessionNow + viewOffset — what the center marker points to
- *  - Header shows selectedTime day/date/time + interpolated tide height
- *  - Header updates continuously during drag and inertia
- *  - Y-axis left padding increased: mobile 50→62, desktop 58→70 (visually obvious)
- *  - Y-axis label draw position adjusted to maintain proportional gap
+ * Changes from v1.9:
+ *  - Y-axis left padding reduced: mobile 62→48, desktop 70→58 (reclaims chart width)
+ *  - Label offset pad.left−8 → pad.left−4 (tighter to plot edge)
+ *  - Full rectangular plot border removed; replaced with L-shaped left+bottom axes
+ *  - "Now" button added: appears when viewOffset > 30min, animates back to present
+ *  - Now button uses cubic ease-out over 320ms — smooth return, not an instant jump
+ *  - msPerPx() updated to match new padding values
  */
 
 'use strict';
@@ -336,12 +335,12 @@ function drawChart() {
 
   const isMobile = w < 420;
 
-  // Y-axis left padding increased for breathing room: mobile 62, desktop 70
+  // Y-axis left padding: balanced breathing room without wasted gutter
   const pad = {
     top:    isMobile ? 34 : 38,
     right:  isMobile ? 12 : 20,
     bottom: isMobile ? 40 : 46,
-    left:   isMobile ? 62 : 70,
+    left:   isMobile ? 48 : 58,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
@@ -468,12 +467,19 @@ function drawChart() {
 
   ctx.restore(); // end clip
 
-  // ── Plot border ───────────────────────────────────────────────────────────
+  // ── Axis lines: left + bottom only (no top/right border) ────────────────
+  // Draws an L-shaped axis. No full rectangle — avoids dashboard widget look.
   ctx.save();
   ctx.strokeStyle = C.navyLight;
   ctx.lineWidth   = 1;
   ctx.setLineDash([]);
-  ctx.strokeRect(pad.left, pad.top, plotW, plotH);
+  ctx.beginPath();
+  // Left axis line
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + plotH);
+  // Bottom axis line
+  ctx.lineTo(pad.left + plotW, pad.top + plotH);
+  ctx.stroke();
   ctx.restore();
 
   // ── High / Low annotations ────────────────────────────────────────────────
@@ -612,8 +618,8 @@ function drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile) {
     ctx.font         = `${yFontSize}px "DM Mono", monospace`;
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
-    // 8px gap from the plot left edge, so labels sit comfortably in the new wider margin
-    ctx.fillText(label, pad.left - 8, y);
+    // 4px gap between label right edge and plot left edge
+    ctx.fillText(label, pad.left - 4, y);
   });
   ctx.restore();
 }
@@ -658,17 +664,70 @@ let inertiaRaf = null;
 
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
-  const cssW    = canvas.clientWidth || canvas.offsetWidth || 320;
-  const isMob   = cssW < 420;
-  const leftPad = isMob ? 62 : 70;
-  const rightPad= isMob ? 12 : 20;
-  const plotW   = cssW - leftPad - rightPad;
+  const cssW     = canvas.clientWidth || canvas.offsetWidth || 320;
+  const isMob    = cssW < 420;
+  const leftPad  = isMob ? 48 : 58;
+  const rightPad = isMob ? 12 : 20;
+  const plotW    = cssW - leftPad - rightPad;
   return (24 * 60 * 60 * 1000) / plotW;
 }
 
 function cancelInertia() {
   if (inertiaRaf) { cancelAnimationFrame(inertiaRaf); inertiaRaf = null; }
 }
+
+// ─── Now button ───────────────────────────────────────────────────────────────
+
+const nowBtn = document.getElementById('now-btn');
+
+// Show the Now button when viewOffset is meaningfully non-zero (> 30 min)
+// Hide it when the user is essentially at the present.
+const NOW_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+function updateNowBtn() {
+  if (Math.abs(viewOffset) > NOW_THRESHOLD_MS) {
+    nowBtn.classList.remove('hidden');
+  } else {
+    nowBtn.classList.add('hidden');
+  }
+}
+
+// Animated return to viewOffset = 0.
+// Uses an exponential ease-out over ~300ms (feels like a spring release).
+let returnRaf = null;
+
+function animateToNow() {
+  cancelInertia();
+  if (returnRaf) cancelAnimationFrame(returnRaf);
+
+  const DURATION = 320; // ms
+  const startOff = viewOffset;
+  const startTs  = performance.now();
+
+  function step(ts) {
+    const elapsed = ts - startTs;
+    const t = Math.min(elapsed / DURATION, 1);
+    // Ease-out cubic
+    const eased = 1 - Math.pow(1 - t, 3);
+    viewOffset = startOff * (1 - eased);
+
+    drawChart();
+    updateNowBtn();
+
+    if (t < 1) {
+      returnRaf = requestAnimationFrame(step);
+    } else {
+      viewOffset = 0;
+      returnRaf  = null;
+      drawChart();
+      updateNowBtn();
+    }
+  }
+
+  returnRaf = requestAnimationFrame(step);
+}
+
+nowBtn.addEventListener('click', animateToNow);
 
 function startInertia(velPxPerMs) {
   // velPxPerMs: positive = dragged right (going into past), negative = future
@@ -683,6 +742,7 @@ function startInertia(velPxPerMs) {
 
     viewOffset -= vel * msPerPx() * 16;
     drawChart();
+    updateNowBtn();
     inertiaRaf = requestAnimationFrame(step);
   }
 
@@ -718,6 +778,7 @@ canvas.addEventListener('touchmove', e => {
   touch.lastTime = e.timeStamp;
 
   drawChart();
+  updateNowBtn();
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
@@ -737,6 +798,7 @@ function showChart() {
   hideChartStatus();
   chartCard.classList.remove('hidden');
   drawChart();
+  updateNowBtn();
 }
 
 // ─── Station selection ────────────────────────────────────────────────────────

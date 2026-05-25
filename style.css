@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v1.9
+   TideWatch — style.css  v2.0
    Aesthetic: coastal instrument panel
 ───────────────────────────────────────── */
 
@@ -312,6 +312,10 @@ html, body {
 /* Date label — aligned to gutter, breathing room below */
 #chart-header {
   padding: 0 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 #chart-date-label {
@@ -319,6 +323,33 @@ html, body {
   font-weight: 500;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Now button — lightweight pill, only visible when scrolled from present */
+#now-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#now-btn:active {
+  color: var(--tide-bright);
+  border-color: var(--tide-bright);
 }
 
 /*
