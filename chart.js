@@ -1,10 +1,10 @@
 /**
- * TideWatch — chart.js  v2.4
+ * TideWatch — chart.js  v2.5
  *
- * Changes from v2.3:
- *  - pad.left reduced: mobile 48→34, desktop 58→40 (eliminates dead left gutter)
- *  - pad.right reduced: mobile 12→10, desktop 20→16
- *  - msPerPx() updated to match
+ * Changes from v2.4:
+ *  - Y-axis scale locked after initial load — never recomputed from chunk fetches
+ *  - initialLoad fetches ±14-day hilo window to establish stable scale range
+ *  - Chart height changed from aspect-ratio to absolute px: 250/280/320 by screen width
  */
 
 'use strict';
@@ -253,11 +253,35 @@ async function fetchChunk(station, chunkStart, chunkEnd) {
   }
 }
 
-// Initial load: covers now−2d … now+3d (5-day chunk centered on today)
+// Initial load — two steps:
+// 1. Fetch ±14-day hilo predictions (fast/small) to establish the y-axis scale range
+// 2. Fetch the normal 5-day curve+hilo chunk for the visible window
+// The scale is locked after step 1 so subsequent lazy fetches never rescale.
 async function initialLoad(station) {
   const center = dayFloor(sessionNow);
-  const start  = dayOffset(center, -2);
-  const end    = dayOffset(center, +3);
+
+  // Step 1: hilo-only over ±14 days → establishes stable y-axis range
+  const scaleStart = dayOffset(center, -14);
+  const scaleEnd   = dayOffset(center, +14);
+  try {
+    const hiloData = await fetchNoaa(
+      station.id, toNoaaDate(scaleStart), toNoaaDate(scaleEnd), 'hilo'
+    );
+    const scalePts = (hiloData.predictions || []).map(p => parseFloat(p.v));
+    if (scalePts.length) {
+      const { ticks, axisMin, axisMax } =
+        computeYTicks(Math.min(...scalePts), Math.max(...scalePts));
+      yScaleCache  = { ticks, yMin: axisMin, yMax: axisMax };
+      yScaleLocked = true;
+      console.log(`[TideWatch] Y-scale locked: ${axisMin.toFixed(1)}–${axisMax.toFixed(1)} ft`);
+    }
+  } catch (err) {
+    console.warn('[TideWatch] Scale prefetch failed, will use curve data:', err.message);
+  }
+
+  // Step 2: full curve + hilo for the initial visible window (5 days)
+  const start = dayOffset(center, -2);
+  const end   = dayOffset(center, +3);
   await fetchChunk(station, start, end);
 }
 
@@ -283,8 +307,13 @@ function ensureData(winStart, winEnd) {
 }
 
 // ─── Y scale cache ────────────────────────────────────────────────────────────
+// Set once during initialLoad from the full ±14-day range. Never updated after
+// that — prevents visual jumping as lazy chunks load during scrolling.
+
+let yScaleLocked = false;
 
 function rebuildYScale() {
+  if (yScaleLocked) return;          // already set from initial load — don't touch
   if (!tidePoints.length) return;
   const allV = tidePoints.map(p => p.v);
   const { ticks, axisMin, axisMax } = computeYTicks(Math.min(...allV), Math.max(...allV));
@@ -297,8 +326,13 @@ function setupCanvas() {
   const container = canvas.parentElement;
   const dpr  = window.devicePixelRatio || 1;
   const cssW = container.clientWidth;
-  const ratio = cssW < 340 ? 0.70 : cssW < 420 ? 0.62 : 0.54;
-  const cssH  = Math.round(cssW * ratio);
+
+  // Fixed heights by screen width — more predictable than aspect ratios
+  let cssH;
+  if      (cssW < 360) cssH = 250;
+  else if (cssW < 480) cssH = 280;
+  else if (cssW < 768) cssH = 310;
+  else                 cssH = 320;
 
   canvas.style.width  = cssW + 'px';
   canvas.style.height = cssH + 'px';
@@ -885,6 +919,7 @@ document.addEventListener('stationSelected', async (e) => {
   tidePoints   = [];
   hiloPoints   = [];
   yScaleCache  = null;
+  yScaleLocked = false;
   loadedChunks.length = 0;
 
   chartSection.classList.remove('hidden');
