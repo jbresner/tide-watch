@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   TideWatch — style.css  v2.0
+   TideWatch — style.css  v2.1
    Aesthetic: coastal instrument panel
 ───────────────────────────────────────── */
 
@@ -25,8 +25,8 @@
 
   --radius-md: 12px;
 
-  /* Horizontal gutter — used by header, cards, and chart date label */
-  --gutter: 14px;
+  /* Horizontal gutter — 10px sides everywhere */
+  --gutter: 10px;
 }
 
 html, body {
@@ -434,12 +434,10 @@ html, body {
 /* ── Responsive ── */
 
 @media (min-width: 400px) {
-  :root { --gutter: 16px; }
   #station-card { padding: 18px 20px; }
   #station-name { font-size: 23px; }
 }
 
 @media (min-width: 540px) {
-  :root { --gutter: 20px; }
   #station-name { font-size: 24px; }
 }

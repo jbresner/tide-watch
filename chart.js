@@ -1,13 +1,10 @@
 /**
- * TideWatch — chart.js  v2.0
+ * TideWatch — chart.js  v2.1
  *
- * Changes from v1.9:
- *  - Y-axis left padding reduced: mobile 62→48, desktop 70→58 (reclaims chart width)
- *  - Label offset pad.left−8 → pad.left−4 (tighter to plot edge)
- *  - Full rectangular plot border removed; replaced with L-shaped left+bottom axes
- *  - "Now" button added: appears when viewOffset > 30min, animates back to present
- *  - Now button uses cubic ease-out over 320ms — smooth return, not an instant jump
- *  - msPerPx() updated to match new padding values
+ * Changes from v2.0:
+ *  - Desktop mouse drag interaction (mousedown/mousemove/mouseup + inertia)
+ *  - Desktop wheel/trackpad scroll (wheel event, horizontal + vertical delta)
+ *  - Gutter reduced to flat 10px (was 14–20px responsive) — reclaims left space
  */
 
 'use strict';
@@ -790,6 +787,67 @@ canvas.addEventListener('touchend', e => {
     startInertia(touch.velX);
   }
 }, { passive: true });
+
+// ─── Desktop mouse interaction ────────────────────────────────────────────────
+// Mirrors touch model: mousedown → mousemove → mouseup with inertia.
+
+const mouse = {
+  active:   false,
+  startX:   0,
+  startOff: 0,
+  lastX:    0,
+  lastTime: 0,
+  velX:     0,
+};
+
+canvas.addEventListener('mousedown', e => {
+  cancelInertia();
+  mouse.active   = true;
+  mouse.startX   = e.clientX;
+  mouse.startOff = viewOffset;
+  mouse.lastX    = e.clientX;
+  mouse.lastTime = e.timeStamp;
+  mouse.velX     = 0;
+  e.preventDefault();
+});
+
+window.addEventListener('mousemove', e => {
+  if (!mouse.active) return;
+
+  const dx = e.clientX - mouse.startX;
+  viewOffset = mouse.startOff - dx * msPerPx();
+
+  const dt = e.timeStamp - mouse.lastTime;
+  if (dt > 0) {
+    const instVel = (e.clientX - mouse.lastX) / dt;
+    mouse.velX    = mouse.velX * 0.6 + instVel * 0.4;
+  }
+  mouse.lastX    = e.clientX;
+  mouse.lastTime = e.timeStamp;
+
+  drawChart();
+  updateNowBtn();
+});
+
+window.addEventListener('mouseup', e => {
+  if (!mouse.active) return;
+  mouse.active = false;
+
+  if (Math.abs(mouse.velX) > 0.1) {
+    startInertia(mouse.velX);
+  }
+});
+
+// Mouse wheel / trackpad swipe — directly adjusts viewOffset
+canvas.addEventListener('wheel', e => {
+  cancelInertia();
+  // deltaX for horizontal trackpad swipe; deltaY as fallback for scroll wheels
+  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  viewOffset += delta * msPerPx() * (e.deltaMode === 1 ? 20 : 1);
+  drawChart();
+  updateNowBtn();
+  e.preventDefault();
+}, { passive: false });
 
 // ─── Show chart ───────────────────────────────────────────────────────────────
 
