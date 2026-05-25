@@ -1,10 +1,11 @@
 /**
- * TideWatch — chart.js  v2.8
+ * TideWatch — chart.js  v2.9
  *
- * Changes from v2.7:
- *  - initialLoad now stores ±14-day hilo into hiloPoints immediately
- *  - Hilo annotations available for full ±14-day window from first render
- *  - Eliminates flickering at chunk boundaries during scrubbing
+ * Changes from v2.8:
+ *  - Removed global tightlyPacked flag — was incorrectly suppressing time labels
+ *    on ALL annotations when ANY two were close together horizontally
+ *  - Per-label collision detection now tries full (height+time) label first,
+ *    falls back to height-only only when that specific label truly has no room
  */
 
 'use strict';
@@ -516,14 +517,10 @@ function drawChart() {
   const TM_FONT    = isMobile ? 10 : 12;
   const LBL_HT_H   = HT_FONT + 3;
   const LBL_TM_H   = TM_FONT + 2;
-  const LBL_H      = LBL_HT_H + LBL_TM_H + 2;
+  const FULL_H     = LBL_HT_H + LBL_TM_H + 2;  // height + time
+  const SHORT_H    = LBL_HT_H;                   // height only
 
   const visibleHilo = hiloPoints.filter(p => p.t >= winStart && p.t <= winEnd);
-  const hiloXPos    = visibleHilo.map(p => xOf(p.t));
-  const tightlyPacked = visibleHilo.length >= 2 &&
-    hiloXPos.some((x, i) => i > 0 && Math.abs(x - hiloXPos[i-1]) < LBL_HALF_W * 2 + 4);
-  const showTimeLine  = !tightlyPacked;
-  const effectiveLblH = showTimeLine ? LBL_H : LBL_HT_H;
 
   const occupied = [];
   function overlaps(r) {
@@ -553,19 +550,24 @@ function drawChart() {
     const cx = Math.max(pad.left + LBL_HALF_W + 1,
                  Math.min(px, pad.left + plotW - LBL_HALF_W - 1));
 
-    function tryPlace(above) {
-      const labelY = above
-        ? py - DOT_R - GAP - effectiveLblH
-        : py + DOT_R + GAP;
+    // Try each combination: preferred side + full label, then opposite + full,
+    // then preferred + height-only, then opposite + height-only, then force.
+    function tryPlace(above, lblH) {
+      const labelY = above ? py - DOT_R - GAP - lblH : py + DOT_R + GAP;
       const r = { xMin: cx - LBL_HALF_W, xMax: cx + LBL_HALF_W,
-                  yMin: labelY, yMax: labelY + effectiveLblH };
+                  yMin: labelY, yMax: labelY + lblH };
       if (r.yMin < 1 || r.yMax > pad.top + plotH || overlaps(r)) return null;
-      return { labelY, r };
+      return { labelY, r, showTime: lblH === FULL_H };
     }
 
+    const preferAbove = isHigh;
     const placement =
-      tryPlace(isHigh) || tryPlace(!isHigh) ||
-      { labelY: isHigh ? py - DOT_R - GAP - effectiveLblH : py + DOT_R + GAP, r: null };
+      tryPlace(preferAbove,  FULL_H)  ||
+      tryPlace(!preferAbove, FULL_H)  ||
+      tryPlace(preferAbove,  SHORT_H) ||
+      tryPlace(!preferAbove, SHORT_H) ||
+      { labelY: preferAbove ? py - DOT_R - GAP - SHORT_H : py + DOT_R + GAP,
+        r: null, showTime: false };
 
     if (placement.r) occupied.push(placement.r);
 
@@ -575,7 +577,7 @@ function drawChart() {
     ctx.font         = `500 ${HT_FONT}px "DM Mono", monospace`;
     ctx.fillStyle    = txtColor;
     ctx.fillText(`${p.v.toFixed(1)} ft`, cx, placement.labelY);
-    if (showTimeLine) {
+    if (placement.showTime) {
       ctx.font      = `${TM_FONT}px "DM Mono", monospace`;
       ctx.fillStyle = C.textSecond;
       ctx.fillText(fmtTimeExact(p.t), cx, placement.labelY + LBL_HT_H);
