@@ -1,10 +1,12 @@
 /**
- * TideWatch — chart.js  v2.5
+ * TideWatch — chart.js  v2.6
  *
- * Changes from v2.4:
- *  - Y-axis scale locked after initial load — never recomputed from chunk fetches
- *  - initialLoad fetches ±14-day hilo window to establish stable scale range
- *  - Chart height changed from aspect-ratio to absolute px: 250/280/320 by screen width
+ * Changes from v2.5:
+ *  - Y-axis labels removed entirely — hilo annotations carry all height information
+ *  - Horizontal grid lines removed (meaningless without y-axis labels)
+ *  - drawYAxisOverlay function removed
+ *  - pad.left/right now symmetric 10px — full chart width reclaimed
+ *  - msPerPx simplified to match new padding
  */
 
 'use strict';
@@ -366,12 +368,12 @@ function drawChart() {
 
   const isMobile = w < 420;
 
-  // pad.left just wide enough for y-axis labels (e.g. "-1.5" = ~22px at 11px mono + 4px gap)
+  // No y-axis labels — symmetric small padding, full chart width
   const pad = {
-    top:    isMobile ? 34 : 38,
-    right:  isMobile ? 10 : 16,
-    bottom: isMobile ? 40 : 46,
-    left:   isMobile ? 34 : 40,
+    top:    isMobile ? 30 : 34,
+    right:  10,
+    bottom: isMobile ? 36 : 42,
+    left:   10,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
@@ -398,7 +400,7 @@ function drawChart() {
   if (visible.length < 2) return;
 
   // ── Y scale (stable, from cache) ──────────────────────────────────────────
-  const { ticks: yTicks, yMin, yMax } = yScaleCache;
+  const { yMin, yMax } = yScaleCache;
 
   // ── Coordinate mappers ────────────────────────────────────────────────────
   const xOf = t  => pad.left + ((t.getTime() - winStart.getTime()) / winSpan) * plotW;
@@ -408,20 +410,6 @@ function drawChart() {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = C.navyMid;
   ctx.fillRect(0, 0, w, h);
-
-  // ── Horizontal grid lines (full width, drawn behind everything) ───────────
-  ctx.save();
-  ctx.strokeStyle = C.gridLine;
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([4, 7]);
-  yTicks.forEach(v => {
-    const y = yOf(v);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(pad.left + plotW, y);
-    ctx.stroke();
-  });
-  ctx.restore();
 
   // ── X-axis: vertical grid lines + ticks + labels (scrolling) ─────────────
   const xTicks    = computeXTicks(winStart, winEnd, plotW);
@@ -622,37 +610,8 @@ function drawChart() {
 
   ctx.restore();
 
-  // ── Y-axis overlay — drawn LAST, covers scrolling grid lines ─────────────
-  drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile);
-
   // ── Update header text ────────────────────────────────────────────────────
   updateHeader(center, selectedV !== undefined ? selectedV : interpolateAtTime(center));
-}
-
-// ─── Fixed Y-axis overlay ─────────────────────────────────────────────────────
-
-function drawYAxisOverlay(pad, plotH, plotW, yTicks, yOf, isMobile) {
-  const yFontSize = isMobile ? 11 : 12;
-
-  // Opaque strip covering the left margin
-  ctx.save();
-  ctx.fillStyle = C.navyMid;
-  ctx.fillRect(0, 0, pad.left, pad.top + plotH + 2);
-  ctx.restore();
-
-  // Y-axis tick labels — draw right up to the plot edge with a consistent gap
-  ctx.save();
-  yTicks.forEach(v => {
-    const y     = yOf(v);
-    const label = Number.isInteger(v) ? String(v) : v.toFixed(1);
-    ctx.fillStyle    = C.textSecond;
-    ctx.font         = `${yFontSize}px "DM Mono", monospace`;
-    ctx.textAlign    = 'right';
-    ctx.textBaseline = 'middle';
-    // 4px gap between label right edge and plot left edge
-    ctx.fillText(label, pad.left - 4, y);
-  });
-  ctx.restore();
 }
 
 // ─── Header text update ───────────────────────────────────────────────────────
@@ -695,11 +654,8 @@ let inertiaRaf = null;
 
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
-  const cssW     = canvas.offsetWidth || canvas.clientWidth || 375;
-  const isMob    = cssW < 420;
-  const leftPad  = isMob ? 34 : 40;
-  const rightPad = isMob ? 10 : 16;
-  const plotW    = Math.max(cssW - leftPad - rightPad, 100);
+  const cssW  = canvas.offsetWidth || canvas.clientWidth || 375;
+  const plotW = Math.max(cssW - 20, 100); // 10px left + 10px right
   return (24 * 60 * 60 * 1000) / plotW;
 }
 
