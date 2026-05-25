@@ -1,12 +1,8 @@
 /**
- * TideWatch — chart.js  v2.6
+ * TideWatch — chart.js  v2.7
  *
- * Changes from v2.5:
- *  - Y-axis labels removed entirely — hilo annotations carry all height information
- *  - Horizontal grid lines removed (meaningless without y-axis labels)
- *  - drawYAxisOverlay function removed
- *  - pad.left/right now symmetric 10px — full chart width reclaimed
- *  - msPerPx simplified to match new padding
+ * Changes from v2.6:
+ *  - pad.left/right set to 0 — curve runs edge-to-edge
  */
 
 'use strict';
@@ -368,12 +364,12 @@ function drawChart() {
 
   const isMobile = w < 420;
 
-  // No y-axis labels — symmetric small padding, full chart width
+  // Edge-to-edge — curve runs to canvas boundary
   const pad = {
     top:    isMobile ? 30 : 34,
-    right:  10,
+    right:  0,
     bottom: isMobile ? 36 : 42,
-    left:   10,
+    left:   0,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
@@ -655,7 +651,7 @@ let inertiaRaf = null;
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
   const cssW  = canvas.offsetWidth || canvas.clientWidth || 375;
-  const plotW = Math.max(cssW - 20, 100); // 10px left + 10px right
+  const plotW = Math.max(cssW, 100);
   return (24 * 60 * 60 * 1000) / plotW;
 }
 
