@@ -1,10 +1,10 @@
 /**
- * TideWatch — chart.js  v2.3
+ * TideWatch — chart.js  v2.4
  *
- * Changes from v2.2:
- *  - Wheel listener moved from canvas to window with canvas hit-test
- *    (fixes macOS gesture routing swallowing events before JS sees them)
- *  - touch-action changed from pan-y to none in CSS (fixes trackpad on macOS)
+ * Changes from v2.3:
+ *  - pad.left reduced: mobile 48→34, desktop 58→40 (eliminates dead left gutter)
+ *  - pad.right reduced: mobile 12→10, desktop 20→16
+ *  - msPerPx() updated to match
  */
 
 'use strict';
@@ -332,12 +332,12 @@ function drawChart() {
 
   const isMobile = w < 420;
 
-  // Y-axis left padding: balanced breathing room without wasted gutter
+  // pad.left just wide enough for y-axis labels (e.g. "-1.5" = ~22px at 11px mono + 4px gap)
   const pad = {
     top:    isMobile ? 34 : 38,
-    right:  isMobile ? 12 : 20,
+    right:  isMobile ? 10 : 16,
     bottom: isMobile ? 40 : 46,
-    left:   isMobile ? 48 : 58,
+    left:   isMobile ? 34 : 40,
   };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top  - pad.bottom;
@@ -661,12 +661,11 @@ let inertiaRaf = null;
 
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
-  // Use offsetWidth as fallback — clientWidth can be 0 if layout hasn't settled
   const cssW     = canvas.offsetWidth || canvas.clientWidth || 375;
   const isMob    = cssW < 420;
-  const leftPad  = isMob ? 48 : 58;
-  const rightPad = isMob ? 12 : 20;
-  const plotW    = Math.max(cssW - leftPad - rightPad, 100); // guard against zero
+  const leftPad  = isMob ? 34 : 40;
+  const rightPad = isMob ? 10 : 16;
+  const plotW    = Math.max(cssW - leftPad - rightPad, 100);
   return (24 * 60 * 60 * 1000) / plotW;
 }
 
