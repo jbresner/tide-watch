@@ -374,12 +374,11 @@ html, body {
 #tide-canvas {
   display: block;
   width: 100%;
-  height: auto;
   border: none;
   border-radius: 0;
   background: none;
-  /* Allow horizontal drag without triggering page scroll */
-  touch-action: pan-y;
+  /* none: let JS handle all gestures including trackpad/Magic Mouse */
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;

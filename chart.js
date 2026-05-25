@@ -1,10 +1,10 @@
 /**
- * TideWatch — chart.js  v2.1
+ * TideWatch — chart.js  v2.3
  *
- * Changes from v2.0:
- *  - Desktop mouse drag interaction (mousedown/mousemove/mouseup + inertia)
- *  - Desktop wheel/trackpad scroll (wheel event, horizontal + vertical delta)
- *  - Gutter reduced to flat 10px (was 14–20px responsive) — reclaims left space
+ * Changes from v2.2:
+ *  - Wheel listener moved from canvas to window with canvas hit-test
+ *    (fixes macOS gesture routing swallowing events before JS sees them)
+ *  - touch-action changed from pan-y to none in CSS (fixes trackpad on macOS)
  */
 
 'use strict';
@@ -661,11 +661,12 @@ let inertiaRaf = null;
 
 // ms of chart time per pixel — derived from canvas width and 24h window
 function msPerPx() {
-  const cssW     = canvas.clientWidth || canvas.offsetWidth || 320;
+  // Use offsetWidth as fallback — clientWidth can be 0 if layout hasn't settled
+  const cssW     = canvas.offsetWidth || canvas.clientWidth || 375;
   const isMob    = cssW < 420;
   const leftPad  = isMob ? 48 : 58;
   const rightPad = isMob ? 12 : 20;
-  const plotW    = cssW - leftPad - rightPad;
+  const plotW    = Math.max(cssW - leftPad - rightPad, 100); // guard against zero
   return (24 * 60 * 60 * 1000) / plotW;
 }
 
@@ -762,8 +763,9 @@ canvas.addEventListener('touchmove', e => {
   e.preventDefault(); // prevent page scroll while scrubbing chart
 
   const t   = e.touches[0];
-  const dx  = t.clientX - touch.startX; // px moved since touch start
+  const dx  = t.clientX - touch.startX;
   viewOffset = touch.startOff - dx * msPerPx();
+  if (!isFinite(viewOffset)) { viewOffset = touch.startOff; return; }
 
   // Track instantaneous velocity for inertia (exponential moving average)
   const dt = e.timeStamp - touch.lastTime;
@@ -816,6 +818,7 @@ window.addEventListener('mousemove', e => {
 
   const dx = e.clientX - mouse.startX;
   viewOffset = mouse.startOff - dx * msPerPx();
+  if (!isFinite(viewOffset)) { viewOffset = mouse.startOff; return; }
 
   const dt = e.timeStamp - mouse.lastTime;
   if (dt > 0) {
@@ -838,15 +841,30 @@ window.addEventListener('mouseup', e => {
   }
 });
 
-// Mouse wheel / trackpad swipe — directly adjusts viewOffset
-canvas.addEventListener('wheel', e => {
+// Wheel / trackpad — listen on window so macOS gesture routing can't swallow it.
+// Hit-test against the canvas bounding rect so we don't steal scroll elsewhere.
+window.addEventListener('wheel', e => {
+  const rect = canvas.getBoundingClientRect();
+  const overCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
+                     e.clientY >= rect.top  && e.clientY <= rect.bottom;
+  if (!overCanvas) return;
+
+  e.preventDefault();
   cancelInertia();
-  // deltaX for horizontal trackpad swipe; deltaY as fallback for scroll wheels
-  const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-  viewOffset += delta * msPerPx() * (e.deltaMode === 1 ? 20 : 1);
+
+  const mpp = msPerPx();
+  if (!isFinite(mpp)) return;
+
+  const lineH = 20;
+  const dx = e.deltaX * (e.deltaMode === 1 ? lineH : 1);
+  const dy = e.deltaY * (e.deltaMode === 1 ? lineH : 1);
+  const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+
+  viewOffset += delta * mpp;
+  if (!isFinite(viewOffset)) { viewOffset = 0; return; }
+
   drawChart();
   updateNowBtn();
-  e.preventDefault();
 }, { passive: false });
 
 // ─── Show chart ───────────────────────────────────────────────────────────────
